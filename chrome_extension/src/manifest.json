@@ -1,0 +1,25 @@
+{
+  "name": "Nauf's Worlds Manager",
+  "description": "An extension that lets you save your worlds to local WM from VRC web",
+  "version": "1",
+  "manifest_version": 3,
+  "action": {
+    "default_icon": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "https://vrchat.com/*"
+  ],
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://vrchat.com/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

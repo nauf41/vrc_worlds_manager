@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "watch": "webpack --watch --config webpack.config.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "chrome-types": "^0.1.425",
+    "copy-webpack-plugin": "^14.0.0",
+    "ts-loader": "^9.5.7",
+    "typescript": "^6.0.3",
+    "webpack": "^5.106.2",
+    "webpack-cli": "^7.0.2"
+  }
+}
