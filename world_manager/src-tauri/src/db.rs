@@ -135,7 +135,7 @@ pub async fn add_new_world(uuid: String, publisher: i32) -> anyhow::Result<()> {
   Ok(())
 }
 
-pub async fn does_world_exist(uuid: String) -> anyhow::Result<bool> {
+pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
   let len: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM worlds WHERE uuid = ?;", uuid)
     .fetch_one(get_pool().await)
     .await?;

@@ -1,4 +1,5 @@
 mod db;
+mod ipc;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -13,6 +14,13 @@ pub fn run() {
             tauri::async_runtime::spawn(async {
                 if let Err(err) = db::init().await {
                     eprintln!("failed to initialize database: {err}");
+                }
+            });
+            tauri::async_runtime::spawn(async {
+                loop {
+                    if let Err(err) = ipc::main().await {
+                        eprintln!("Error while processing IPC: {err}");
+                    }
                 }
             });
             Ok(())
