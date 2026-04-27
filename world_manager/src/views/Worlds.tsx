@@ -20,9 +20,9 @@ export function Worlds() {
 
 function World() {
   return (
-    <div className="col-4">
+    <div className="col-4 col-xl-3 col-xxl-2">
       <div className="card h-100">
-      <img src="/public/testimage.png" className="card-img-top" alt="" />
+      <img src="/testimage.png" className="card-img-top" alt="" />
       <div className="card-body">
         <h5 className="card-title">集合はいつもの場所で</h5>
         <span className="card-text"><span className="text-body-tertiary">By</span> John Doe</span><br />
