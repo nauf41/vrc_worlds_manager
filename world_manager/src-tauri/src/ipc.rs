@@ -31,10 +31,15 @@ pub async fn main() -> anyhow::Result<()> {
       let mut dat_buf = vec![0u8; len as usize];
       reader.read_exact(&mut dat_buf).await.unwrap();
 
+      if let Ok(s) = String::from_utf8(dat_buf.clone()) {
+        println!("received message: {s}");
+      }
+
       let st: Result<native_messaging::Message, _> = serde_json::from_slice(&dat_buf);
       if let Ok(msg) = st {
         let response_object = process_and_gen_response(msg).await;
         if let Ok(r) = response_object {
+          println!("Returning {r:?}");
           let res = serde_json::to_vec(&r);
 
           if let Ok(mut resp) = res {
@@ -81,26 +86,26 @@ pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow:
 pub mod native_messaging {
   use serde::{Deserialize, Serialize};
 
-  #[derive(Debug, Serialize, Deserialize)]
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   #[serde(tag = "type", content = "body")]
   pub enum Message {
     #[serde(rename = "favorite-status")]
     FavoriteStatus(CheckFavorite),
   }
 
-  #[derive(Debug, Serialize, Deserialize)]
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   pub struct CheckFavorite {
     pub uuid: String,
   }
 
-  #[derive(Debug, Serialize, Deserialize)]
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   #[serde(tag = "type", content = "body")]
   pub enum Response {
     #[serde(rename = "favorite-status")]
     FavoriteStatus(CheckFavoriteResponse),
   }
 
-  #[derive(Debug, Serialize, Deserialize)]
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   pub struct CheckFavoriteResponse {
     pub uuid: String,
     #[serde(rename = "isFavorite")]
