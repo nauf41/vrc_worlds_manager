@@ -3,6 +3,7 @@ import "./nativeMessaging";
 import { getFavoriteStatus } from "./nativeMessaging";
 
 chrome.runtime.onMessage.addListener(async(message: Messaging.Message, sender, sendResponse) => {
+  console.log("Sending message:", message);
   switch (message.type) {
     case "favorite-status": {
       const {uuid} = message.body;
