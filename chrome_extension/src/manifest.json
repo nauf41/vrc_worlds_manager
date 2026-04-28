@@ -13,7 +13,8 @@
     "https://vrchat.com/*"
   ],
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "nativeMessaging"
   ],
   "content_scripts": [
     {

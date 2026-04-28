@@ -2,7 +2,7 @@ import { checkFavoriteStatus } from "./background";
 
 export function main() {
   console.log("processing home...");
-  setInterval(() => {
+  const fn = async () => {
     const worlds = document.getElementsByClassName("locations")[0]?.children;
     if (worlds) {
       for (const world of worlds) {
@@ -21,19 +21,22 @@ export function main() {
             ?.children[0] as HTMLLinkElement // a
           )?.href?.match(/worldId=(.+?)&/)?.[1];
 
-          checkFavoriteStatus(uuid!).then((response) => {
-            if (response.body.isFavorite) {
-              const elem = document.createElement("button"); // as HTMLButtonElement;
-              elem.textContent = "See in NFavorites";
-              target?.appendChild(elem);
-            } else {
-              const elem = document.createElement("button"); // as HTMLButtonElement;
-              elem.textContent = "Add to NFavorites";
-              target?.appendChild(elem);
-            }
-          })
+          console.log("Checking favorite status for world", { uuid, world });
+          const response = await checkFavoriteStatus(uuid!);
+          if (response.body.isFavorite) {
+            const elem = document.createElement("button"); // as HTMLButtonElement;
+            elem.textContent = "See in NFavorites";
+            target?.appendChild(elem);
+          } else {
+            const elem = document.createElement("button"); // as HTMLButtonElement;
+            elem.textContent = "Add to NFavorites";
+            target?.appendChild(elem);
+          }
         }
       }
     }
-  }, 100);
+    setTimeout(fn, 1000);
+  };
+
+  setTimeout(fn, 1000);
 }
