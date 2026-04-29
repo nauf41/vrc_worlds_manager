@@ -73,7 +73,7 @@ pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow:
   match msg {
     Message::FavoriteStatus(dat) => {
       let uuid = dat.uuid;
-      let is_favorite = crate::db::does_world_exist(&uuid).await?;
+      let is_favorite = crate::db::worlds::does_world_exist(&uuid).await?;
 
       Ok(Response::FavoriteStatus(CheckFavoriteResponse {
         uuid,

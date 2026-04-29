@@ -1,5 +1,7 @@
 use std::{str::FromStr, sync::OnceLock};
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
+pub mod worlds;
+pub mod tags;
 
 pub async fn get_pool() -> &'static sqlx::SqlitePool {
   static POOL: OnceLock<sqlx::SqlitePool> = OnceLock::new();
@@ -29,7 +31,8 @@ pub async fn init() -> anyhow::Result<()> {
     "CREATE TABLE IF NOT EXISTS worlds (
       id INTEGER PRIMARY KEY,
       uuid TEXT UNIQUE NOT NULL,
-      publisher INTEGER NOT NULL,
+      publisher INTEGER,
+      registered_at INTEGER,
       FOREIGN KEY (publisher) REFERENCES users(id)
     );"
   ).execute(pool).await?;
@@ -106,7 +109,7 @@ pub async fn init() -> anyhow::Result<()> {
       world_id INTEGER,
       started_at INTEGER NOT NULL,
       ended_at INTEGER,
-      FOREIGN KEY (world_id) REFERENCES world(id)
+      FOREIGN KEY (world_id) REFERENCES worlds(id)
     );"
   ).execute(pool).await?;
 
@@ -120,27 +123,6 @@ pub async fn init() -> anyhow::Result<()> {
   ).execute(pool).await?;
 
   Ok(())
-}
-
-pub async fn add_new_world(uuid: String, publisher: i32) -> anyhow::Result<()> {
-  sqlx::query!(
-    "INSERT INTO worlds (uuid, publisher) VALUES (
-      ?,
-      ?
-    );",
-    uuid,
-    publisher
-  ).execute(get_pool().await).await?;
-
-  Ok(())
-}
-
-pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
-  let len: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM worlds WHERE uuid = ?;", uuid)
-    .fetch_one(get_pool().await)
-    .await?;
-
-  Ok(len > 0)
 }
 
 pub async fn add_new_user(uuid: String) -> anyhow::Result<()> {
