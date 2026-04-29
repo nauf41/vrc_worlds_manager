@@ -1,36 +1,30 @@
-import { MdFavoriteBorder, MdGroups, MdOutlineLabel, MdOutlineMeetingRoom } from "react-icons/md"
+import { MdFavoriteBorder, MdGroups, MdOutlineMeetingRoom } from "react-icons/md"
+import { World as TWorld } from "../types/world";
 
-export function Worlds() {
+export function Worlds(props: {worlds: TWorld[]}) {
   return (
     <div className="col-9 h-100 overflow-y-auto overflow-x-hidden">
       <div className="row g-3 m-0 p-3">
-      <World />
-      <World />
-      <World />
-      <World />
-      <World />
-      <World />
-      <World />
-      <World />
-      <World />
+        {props.worlds.map((world) => (
+          <World key={world.id} world={world} />
+        ))}
       </div>
     </div>
   )
 }
 
-function World() {
+function World(props: {world: TWorld}) {
   return (
     <div className="col-4 col-xl-3 col-xxl-2">
       <div className="card h-100">
-      <img src="/testimage.png" className="card-img-top" alt="" />
-      <div className="card-body">
-        <h5 className="card-title">集合はいつもの場所で</h5>
-        <span className="card-text"><span className="text-body-tertiary">By</span> John Doe</span><br />
-        <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdFavoriteBorder /> 1.4k</span>
-        <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdGroups /> 10</span>
-        <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdOutlineMeetingRoom /> 5</span>
-        <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdOutlineLabel /> Adventure <span className="text-body-tertiary">+2</span></span>
-      </div>
+        <img src="/testimage.png" className="card-img-top" alt={props.world.title} />
+        <div className="card-body">
+          <h5 className="card-title">{props.world.title}</h5>
+          <span className="card-text"><span className="text-body-tertiary">By</span> {props.world.publisher_name}</span><br />
+          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdFavoriteBorder /> {props.world.favorites}</span>
+          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdGroups /> {props.world.visits}</span>
+          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdOutlineMeetingRoom /> {props.world.capacity}</span>
+        </div>
       </div>
     </div>
   )
