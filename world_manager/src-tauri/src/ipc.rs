@@ -68,17 +68,44 @@ pub async fn main() -> anyhow::Result<()> {
 }
 
 pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow::Result<native_messaging::Response> {
-  use native_messaging::{Message, Response, CheckFavoriteResponse};
+  use native_messaging::{MessageBody, Response, CheckFavoriteResponse, ResponseBody};
 
-  match msg {
-    Message::FavoriteStatus(dat) => {
+  match msg.body {
+    MessageBody::FavoriteStatus(dat) => {
       let uuid = dat.uuid;
       let is_favorite = crate::db::worlds::does_world_exist(&uuid).await?;
 
-      Ok(Response::FavoriteStatus(CheckFavoriteResponse {
-        uuid,
-        is_favorite,
-      }))
+      Ok(Response {
+        id: msg.id,
+        body: ResponseBody::FavoriteStatus(CheckFavoriteResponse {
+          uuid,
+          is_favorite,
+        })
+      })
+    }
+
+    MessageBody::UpdateCache(cache) => {
+      crate::db::worlds::add_new_world_if_not_exists(&cache.world.uuid).await?;
+      crate::db::worlds::add_world_cache(&cache.world, &cache.cache).await?;
+      Ok(Response {
+        id: msg.id,
+        body: ResponseBody::UpdateCache(true)
+      })
+    }
+
+    MessageBody::SetRegistered(req) => {
+      if let Some(id) = crate::db::worlds::get_world_id_by_uuid(&req.world.uuid).await? {
+        crate::db::worlds::update_registered(id, req.is_registered).await?;
+        Ok(Response {
+          id: msg.id,
+          body: ResponseBody::SetRegistered(true)
+        })
+      } else {
+        Ok(Response {
+          id: msg.id,
+          body: ResponseBody::SetRegistered(false)
+        })
+      }
     }
   }
 }
@@ -87,10 +114,23 @@ pub mod native_messaging {
   use serde::{Deserialize, Serialize};
 
   #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct Message {
+    pub id: f64,
+
+    pub body: MessageBody,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   #[serde(tag = "type", content = "body")]
-  pub enum Message {
+  pub enum MessageBody {
     #[serde(rename = "favorite-status")]
     FavoriteStatus(CheckFavorite),
+
+    #[serde(rename = "update-cache")]
+    UpdateCache(UpdateCache),
+
+    #[serde(rename = "set-registered")]
+    SetRegistered(SetRegistered),
   }
 
   #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -99,10 +139,35 @@ pub mod native_messaging {
   }
 
   #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct UpdateCache {
+    pub world: World,
+    pub cache: WorldCache,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct SetRegistered {
+    #[serde(rename = "isRegistered")]
+    pub is_registered: bool,
+    pub world: World,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct Response {
+    pub id: f64,
+    pub body: ResponseBody,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   #[serde(tag = "type", content = "body")]
-  pub enum Response {
+  pub enum ResponseBody{
     #[serde(rename = "favorite-status")]
     FavoriteStatus(CheckFavoriteResponse),
+
+    #[serde(rename = "update-cache")]
+    UpdateCache(bool),
+
+    #[serde(rename = "set-registered")]
+    SetRegistered(bool),
   }
 
   #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -110,5 +175,23 @@ pub mod native_messaging {
     pub uuid: String,
     #[serde(rename = "isFavorite")]
     pub is_favorite: bool,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct World {
+    pub uuid: String,
+  }
+
+  #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct WorldCache {
+    pub description: Option<String>,
+    pub title: Option<String>,
+    pub visits: Option<f64>,
+    pub favorites: Option<f64>,
+    pub capacity: Option<f64>,
+    pub published_at: Option<f64>,
+    pub does_support_windows: Option<bool>,
+    pub does_support_android: Option<bool>,
+    pub does_support_ios: Option<bool>,
   }
 }

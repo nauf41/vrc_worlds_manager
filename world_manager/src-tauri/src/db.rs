@@ -118,20 +118,9 @@ pub async fn init() -> anyhow::Result<()> {
       id INTEGER PRIMARY KEY,
       user_id INTEGER,
       name TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES user(id)
+      FOREIGN KEY (user_id) REFERENCES users(id)
     );"
   ).execute(pool).await?;
-
-  Ok(())
-}
-
-pub async fn add_new_user(uuid: String) -> anyhow::Result<()> {
-  sqlx::query!(
-    "INSERT INTO users (uuid) VALUES (
-      ?
-    );",
-    uuid
-  ).execute(get_pool().await).await?;
 
   Ok(())
 }
