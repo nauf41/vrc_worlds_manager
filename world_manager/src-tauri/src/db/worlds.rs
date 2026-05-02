@@ -2,6 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use super::get_pool;
 
+fn f64o_to_i64o(f: &Option<f64>) -> Option<i64> {
+  f.map(|v| v as i64)
+}
+
+fn boolo_to_i64o(b: &Option<bool>) -> Option<i64> {
+  b.map(|v| if v { 1 } else { 0 })
+}
+
 /// just add worlds to the DB, not register
 pub async fn add_new_world(uuid: String, publisher: i32) -> anyhow::Result<()> {
   sqlx::query!(
@@ -16,6 +24,92 @@ pub async fn add_new_world(uuid: String, publisher: i32) -> anyhow::Result<()> {
   Ok(())
 }
 
+pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache: &crate::ipc::native_messaging::WorldCache) -> anyhow::Result<()> {
+  let now = chrono::Utc::now().timestamp_millis();
+  let visits = f64o_to_i64o(&cache.visits);
+  let favorites = f64o_to_i64o(&cache.favorites);
+  let capacity = f64o_to_i64o(&cache.capacity);
+  let published_at = f64o_to_i64o(&cache.published_at);
+  let does_support_windows = boolo_to_i64o(&cache.does_support_windows);
+  let does_support_android = boolo_to_i64o(&cache.does_support_android);
+  let does_support_ios = boolo_to_i64o(&cache.does_support_ios);
+  sqlx::query!(
+    "INSERT INTO worlds_cache (
+      world_id,
+      cached_at,
+      description,
+      title,
+      visits,
+      favorites,
+      capacity,
+      published_at,
+      does_support_windows,
+      does_support_android,
+      does_support_ios
+    ) VALUES (
+      (SELECT id FROM worlds WHERE uuid = ?),
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      ?
+    );",
+    world.uuid,
+    now,
+    cache.description,
+    cache.title,
+    visits,
+    favorites,
+    capacity,
+    published_at,
+    does_support_windows,
+    does_support_android,
+    does_support_ios
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
+/// just add worlds to the DB, not register
+pub async fn add_new_world_if_not_exists(uuid: &str) -> anyhow::Result<()> {
+  sqlx::query!(
+    "INSERT OR IGNORE INTO worlds (uuid) VALUES (
+      ?
+    );",
+    uuid
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
+pub async fn add_new_publisher(uuid: &str, name: &Option<String>) -> anyhow::Result<i64> {
+  sqlx::query!(
+    "INSERT OR IGNORE INTO users (uuid) VALUES (?);",
+    uuid
+  ).execute(get_pool().await).await?;
+
+  let user_id: i64 = sqlx::query_scalar!(
+    "SELECT id FROM users WHERE uuid = ?;",
+    uuid
+  ).fetch_one(get_pool().await).await?;
+
+  sqlx::query!(
+    "INSERT INTO users_cache (user_id, name) VALUES (
+      ?,
+      ?
+    );",
+    user_id,
+    name
+  ).execute(get_pool().await).await?;
+
+  Ok(user_id)
+}
+
 pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
   let len: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM worlds WHERE uuid = ?;", uuid)
     .fetch_one(get_pool().await)
@@ -24,7 +118,19 @@ pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
   Ok(len > 0)
 }
 
-pub async fn get_worlds(filter: WorldQueryFilters, sort_by: SortBy) -> Vec<World> {
+pub async fn get_world_id_by_uuid(uuid: &str) -> anyhow::Result<Option<i64>> {
+  let id = sqlx::query_scalar!("SELECT id FROM worlds WHERE uuid = ?;", uuid)
+    .fetch_optional(get_pool().await)
+    .await?;
+
+  if let Some(Some(id)) = id {
+    Ok(Some(id))
+  } else {
+    Ok(None)
+  }
+}
+
+pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Vec<World> {
   sqlx::query_as(
     format!("
     SELECT
@@ -96,6 +202,22 @@ pub async fn get_worlds(filter: WorldQueryFilters, sort_by: SortBy) -> Vec<World
   }).collect()
 }
 
+pub async fn update_registered(id: i64, is_registered: bool) -> anyhow::Result<()> {
+  let registered_at = if is_registered {
+    Some(chrono::Utc::now().timestamp())
+  } else {
+    None
+  };
+
+  sqlx::query!(
+    "UPDATE worlds SET registered_at = ? WHERE id = ?;",
+    registered_at,
+    id
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct WorldQueryFilters {
   tag_id: Option<i64>,
@@ -163,5 +285,10 @@ mod SqlReturnTypes {
     pub does_support_windows: Option<i64>, // is stored as i64 but actually bool
     pub does_support_android: Option<i64>, // is stored as i64 but actually bool
     pub does_support_ios: Option<i64>, // is stored as i64 but actually bool
+  }
+
+  #[derive(sqlx::FromRow)]
+  pub struct Id {
+    pub id: Option<i64>,
   }
 }

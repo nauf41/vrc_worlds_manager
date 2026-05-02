@@ -5,9 +5,11 @@ import { useAppStore } from "../viewmodels/app";
 import { CategorySettings } from "./CategorySettings";
 import { AddWorldForm } from "./AddWorldForm";
 import { Settings } from "./Settings";
+import { useTagsStore } from "../viewmodels/tags";
 
 function App() {
   const appState = useAppStore();
+  useTagsStore.getState().update();
 
   return (
     <main className="d-flex flex-column vh-100 overflow-hidden">

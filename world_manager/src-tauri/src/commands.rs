@@ -2,7 +2,7 @@ use crate::db::{tags, worlds};
 
 #[tauri::command]
 pub async fn get_worlds(filter: worlds::WorldQueryFilters, sort_by: worlds::SortBy) -> Vec<worlds::World> {
-  worlds::get_worlds(filter, sort_by).await
+  worlds::get_worlds(&filter, &sort_by).await
 }
 
 #[tauri::command]

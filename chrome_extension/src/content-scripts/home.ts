@@ -1,4 +1,4 @@
-import { checkFavoriteStatus } from "./background";
+import { checkFavoriteStatus, setRegistered, updateCache } from "./background";
 
 export function main() {
   console.log("processing home...");
@@ -21,6 +21,8 @@ export function main() {
             ?.children[0] as HTMLLinkElement // a
           )?.href?.match(/worldId=(.+?)&/)?.[1];
 
+          if (!uuid) continue; // not found, skip and try again later
+
           console.log("Checking favorite status for world", { uuid, world });
           const response = await checkFavoriteStatus(uuid!);
           if (response.body.isFavorite) {
@@ -30,8 +32,45 @@ export function main() {
           } else {
             const elem = document.createElement("button"); // as HTMLButtonElement;
             elem.textContent = "Add to NFavorites";
+            elem.addEventListener("click", (e) => {
+              setRegistered(
+                true,
+                {
+                  uuid: uuid!,
+                }
+              ).then(() => {
+                elem.remove();
+              })
+            });
             target?.appendChild(elem);
           }
+
+          updateCache(
+            {
+              uuid: uuid!,
+            },
+            {
+              description: world
+                ?.children[0] // css-1brgsnm
+                ?.children[0] // flex-grow-1
+                ?.children[1] // align-items-start
+                ?.children[1] // mt-2
+                ?.textContent ?? null,
+              title: world
+                ?.children[0] // css-1brgsnm
+                ?.children[0] // flex-grow-1
+                ?.children[1] // align-items-start
+                ?.children[0] // a
+                ?.textContent ?? null,
+              visits: null,
+              favorites: null,
+              capacity: null,
+              published_at: null,
+              does_support_windows: null,
+              does_support_android: null,
+              does_support_ios: null,
+            }
+          );
         }
       }
     }
