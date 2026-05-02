@@ -11,7 +11,7 @@ fn boolo_to_i64o(b: &Option<bool>) -> Option<i64> {
 }
 
 /// just add worlds to the DB, not register
-pub async fn add_new_world(uuid: String, publisher: i32) -> anyhow::Result<()> {
+pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> anyhow::Result<()> {
   sqlx::query!(
     "INSERT INTO worlds (uuid, publisher) VALUES (
       ?,
@@ -215,6 +215,20 @@ pub async fn update_registered(id: i64, is_registered: bool) -> anyhow::Result<(
     id
   ).execute(get_pool().await).await?;
 
+  Ok(())
+}
+
+pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> anyhow::Result<()> {
+  sqlx::query!(
+    "INSERT INTO activities (world_id, started_at, ended_at) VALUES (
+      ?,
+      ?,
+      ?
+    );",
+    world_id,
+    started_at,
+    ended_at
+  ).execute(get_pool().await).await?;
   Ok(())
 }
 
