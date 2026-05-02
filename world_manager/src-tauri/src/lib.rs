@@ -1,6 +1,7 @@
 mod db;
 mod ipc;
 mod commands;
+mod log_watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +23,9 @@ pub fn run() {
                         eprintln!("Error while processing IPC: {err}");
                     }
                 }
+            });
+            tauri::async_runtime::spawn(async {
+                log_watcher::main().await;
             });
             Ok(())
         })

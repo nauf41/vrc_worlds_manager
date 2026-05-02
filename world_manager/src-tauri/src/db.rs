@@ -2,6 +2,7 @@ use std::{str::FromStr, sync::OnceLock};
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 pub mod worlds;
 pub mod tags;
+pub mod log_files;
 
 pub async fn get_pool() -> &'static sqlx::SqlitePool {
   static POOL: OnceLock<sqlx::SqlitePool> = OnceLock::new();
@@ -119,6 +120,15 @@ pub async fn init() -> anyhow::Result<()> {
       user_id INTEGER,
       name TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
+    );"
+  ).execute(pool).await?;
+
+  sqlx::query!(
+    // for log watcher. name: output_log_xxx.txt, read_at: the byte offset of the log file that has been read.
+    "CREATE TABLE IF NOT EXISTS log_files (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      read_at INTEGER NOT NULL
     );"
   ).execute(pool).await?;
 
