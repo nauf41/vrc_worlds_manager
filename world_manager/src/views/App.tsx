@@ -6,6 +6,8 @@ import { CategorySettings } from "./CategorySettings";
 import { AddWorldForm } from "./AddWorldForm";
 import { Settings } from "./Settings";
 import { useTagsStore } from "../viewmodels/tags";
+import "../viewmodels/app";
+import "../viewmodels/tags";
 
 function App() {
   const appState = useAppStore();

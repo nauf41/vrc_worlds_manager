@@ -1,7 +1,9 @@
+#[cfg(windows)]
+use tauri::AppHandle;
 use tokio::net::windows::named_pipe::ServerOptions;
 
 #[cfg(windows)]
-pub async fn main() -> anyhow::Result<()> {
+pub async fn main(app: AppHandle) -> anyhow::Result<()> {
   let receiver = tokio::spawn(async move {
     let server = ServerOptions::new()
       .first_pipe_instance(false)
@@ -37,7 +39,7 @@ pub async fn main() -> anyhow::Result<()> {
 
       let st: Result<native_messaging::Message, _> = serde_json::from_slice(&dat_buf);
       if let Ok(msg) = st {
-        let response_object = process_and_gen_response(msg).await;
+        let response_object = process_and_gen_response(&app, msg).await;
         if let Ok(r) = response_object {
           println!("Returning {r:?}");
           let res = serde_json::to_vec(&r);
@@ -67,13 +69,16 @@ pub async fn main() -> anyhow::Result<()> {
   Ok(())
 }
 
-pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow::Result<native_messaging::Response> {
+pub async fn process_and_gen_response(app: &AppHandle, msg: native_messaging::Message) -> anyhow::Result<native_messaging::Response> {
   use native_messaging::{MessageBody, Response, CheckFavoriteResponse, ResponseBody};
+  use tauri::Emitter;
 
   match msg.body {
     MessageBody::FavoriteStatus(dat) => {
       let uuid = dat.uuid;
       let is_favorite = crate::db::worlds::does_world_exist(&uuid).await?;
+
+      app.emit("favorite-status-updated", ()).unwrap();
 
       Ok(Response {
         id: msg.id,
@@ -87,6 +92,9 @@ pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow:
     MessageBody::UpdateCache(cache) => {
       crate::db::worlds::add_new_world_if_not_exists(&cache.world.uuid).await?;
       crate::db::worlds::add_world_cache(&cache.world, &cache.cache).await?;
+
+      app.emit("world-cache-updated", ()).unwrap();
+
       Ok(Response {
         id: msg.id,
         body: ResponseBody::UpdateCache(true)
@@ -96,6 +104,9 @@ pub async fn process_and_gen_response(msg: native_messaging::Message) -> anyhow:
     MessageBody::SetRegistered(req) => {
       if let Some(id) = crate::db::worlds::get_world_id_by_uuid(&req.world.uuid).await? {
         crate::db::worlds::update_registered(id, req.is_registered).await?;
+
+        app.emit("registered-status-updated", ()).unwrap();
+
         Ok(Response {
           id: msg.id,
           body: ResponseBody::SetRegistered(true)
