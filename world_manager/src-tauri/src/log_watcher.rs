@@ -5,10 +5,11 @@ use std::io::{BufRead, BufReader, Seek};
 use regex::Regex;
 
 use chrono::{TimeZone, Utc};
+use tauri::{AppHandle, Emitter};
 
 use crate::ipc::native_messaging::{World, WorldCache};
 
-pub async fn main() -> anyhow::Result<()> {
+pub async fn main(app: AppHandle) -> anyhow::Result<()> {
   log::debug!("Log watcher started");
   let vrc_dir = {
     let mut path = PathBuf::from(env::home_dir().unwrap());
@@ -21,6 +22,8 @@ pub async fn main() -> anyhow::Result<()> {
   log::debug!("Watching log files in {:?}", vrc_dir);
 
   loop {
+    let mut updated = false;
+
     let mut log_files: Vec<DirEntry> = std::fs::read_dir(&vrc_dir)?
       .filter(|entry| { entry.is_ok() })
       .map(|entry| { entry.unwrap() })
@@ -41,13 +44,15 @@ pub async fn main() -> anyhow::Result<()> {
     for entry in log_files.into_iter() {
       log::debug!("Attempting to process log file: {:?}", entry.path());
       if let Some(v) = crate::db::log_files::get_log(&entry.file_name().into_string().unwrap()).await? {
-        if (v.read_at as u64) + 1 < std::fs::metadata(entry.path())?.len() {
-          process_target.push(((v.read_at as u64) + 1, entry));
+        if (v.read_at as u64) < std::fs::metadata(entry.path())?.len() {
+          process_target.push(((v.read_at as u64), entry));
         }
       } else {
         process_target.push((0, entry));
       }
     }
+
+    log::info!("Log files to process: {:?}", process_target.iter().map(|p| (p.1.file_name(), p.0)).collect::<Vec<_>>());
 
     let mut process_target = process_target.into_iter().peekable();
     while let Some((begin, entry)) = process_target.next() {
@@ -55,11 +60,45 @@ pub async fn main() -> anyhow::Result<()> {
       reader.seek(std::io::SeekFrom::Start(begin))?;
 
       let (len, dat) = process_file(reader)?;
+      if crate::db::log_files::get_log(entry.file_name().to_str().unwrap()).await?.is_none() {
+        crate::db::log_files::new_log(entry.file_name().to_str().unwrap()).await?;
+      }
       crate::db::log_files::update_log_read_at(entry.file_name().to_str().ok_or(anyhow::anyhow!("Log file name missing"))?, len).await.unwrap();
-      todo!("implement DB writing");
+
+      for session in dat.into_iter() {
+        if !crate::db::worlds::does_world_exist(&session.world_uuid).await? {
+          updated = true;
+        }
+        crate::db::worlds::add_new_world_if_not_exists(&session.world_uuid).await?;
+        let wrld_id = crate::db::worlds::get_world_id_by_uuid(&session.world_uuid).await?.ok_or(anyhow::anyhow!("UUID must be able to fetch"))?;
+        crate::db::worlds::add_world_cache(&World {
+          uuid: session.world_uuid.clone(),
+        }, &WorldCache {
+          description: None,
+          title: Some(session.world_name),
+          visits: None,
+          favorites: None,
+          capacity: None,
+          published_at: None,
+          does_support_windows: None,
+          does_support_android: None,
+          does_support_ios: None,
+        }).await?;
+
+        crate::db::worlds::new_session(
+          wrld_id,
+          session.started_at.timestamp_millis(),
+          session.ended_at.timestamp_millis()
+        ).await?;
+
+      }
     }
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+    if updated {
+      app.emit("new-world", ()).unwrap();
+    }
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(1 * 1000)).await;
   }
 }
 
@@ -76,7 +115,7 @@ fn process_file<R: std::io::BufRead + std::io::Seek>(mut reader: R) -> anyhow::R
   let mut session_world_name: Option<String> = None;
   let mut session_world_uuid: Option<String> = None;
 
-  let mut read_until: i64 = 0;
+  let mut read_until: i64 = reader.seek(std::io::SeekFrom::Current(0))? as i64;
   let mut sessions: Vec<Session> = vec![];
 
   let mut buf = String::new();

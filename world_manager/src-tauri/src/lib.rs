@@ -17,11 +17,11 @@ pub fn run() {
                 rec.args(),
             )
         })
-        .filter(None, log::LevelFilter::Debug)
+        .filter(None, log::LevelFilter::Info)
         .target(env_logger::Target::Stderr)
         .init();
 
-    log::debug!("Application started");
+    log::info!("Application started");
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -29,22 +29,26 @@ pub fn run() {
             commands::get_tags,
             commands::create_tag,
         ])
-        .setup(|_app| {
-            tauri::async_runtime::spawn(async {
+        .setup(|app| {
+            let handle = app.handle().clone();
+
+            tauri::async_runtime::spawn(async move {
                 if let Err(err) = db::init().await {
                     eprintln!("failed to initialize database: {err}");
                 }
 
+                let h1 = handle.clone();
+                let h2 = handle.clone();
                 // wait for DB init, then start IPC server and log watcher
-                tauri::async_runtime::spawn(async {
+                tauri::async_runtime::spawn(async move {
                     loop {
-                        if let Err(err) = ipc::main().await {
+                        if let Err(err) = ipc::main(h1.clone()).await {
                             eprintln!("Error while processing IPC: {err}");
                         }
                     }
                 });
-                tauri::async_runtime::spawn(async {
-                    if let Err(err) = log_watcher::main().await {
+                tauri::async_runtime::spawn(async move {
+                    if let Err(err) = log_watcher::main(h2).await {
                         eprintln!("Error while running log watcher: {err}");
                     }
                 });

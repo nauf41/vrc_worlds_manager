@@ -1,15 +1,17 @@
 import { create } from "zustand/react";
 import { World } from "../types/world";
 import { getWorlds } from "../models/db";
+import { listen } from "@tauri-apps/api/event";
 
 export interface AppState {
   now: NowSelected,
   display: Display,
   change_type: (query: ChangeTypeQuery) => Promise<void>,
   change_display: (display: Display) => void,
+  update: () => Promise<void>,
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   now: {type: "dashboard"},
   display: "grid",
   change_type: async (query) => {
@@ -46,8 +48,43 @@ export const useAppStore = create<AppState>((set) => ({
       }
     }
   },
-  change_display: (display) => set({display}),
+  change_display: (display) => set({ display }),
+  update: async () => {
+    const state = get();
+    switch (state.now.type) {
+      case "all-worlds": {
+        set({now: {type: "all-worlds", worlds: await getWorlds({registered: true, classified: null, tag_id: null}, "Recency")}});
+        break;
+      }
+
+      case "recent-worlds": {
+        set({now: {type: "recent-worlds", worlds: await getWorlds({registered: null, classified: null, tag_id: null}, "Recency")}});
+        break;
+      }
+
+      case "unclassified-worlds": {
+        set({now: {type: "unclassified-worlds", worlds: await getWorlds({registered: true, classified: false, tag_id: null}, "Recency")}});
+        break;
+      }
+    }
+  }
 }))
+
+listen('new-world', () => {
+  useAppStore.getState().update();
+})
+
+listen('favorite-status-updated', () => {
+  useAppStore.getState().update();
+})
+
+listen('world-cache-updated', () => {
+  useAppStore.getState().update();
+})
+
+listen('registered-status-updated', () => {
+  useAppStore.getState().update();
+})
 
 type NowSelected =
 | {type: "edit_category", form: CreateCategoryForm, category_id: number}
