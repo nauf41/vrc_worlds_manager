@@ -35,3 +35,11 @@ export function createTag(name: string): Promise<Tag> {
     }
   })
 }
+
+export async function changeTag(tagid: number, data: Tag): Promise<void> {
+  await invoke("change_tag", {tagid, data});
+}
+
+export async function deleteTag(tagid: number): Promise<void> {
+  await invoke("delete_tag", {tagid});
+}

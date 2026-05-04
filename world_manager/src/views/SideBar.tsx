@@ -15,7 +15,9 @@ export function SideBar(props: {state: AppState}) {
         tags.tags.map((item, index) => (
           <li key={index} className={"list-group-item list-group-item-action" + ((props.state.now.type === "tag" && props.state.now.tag.id === item.id) ? " list-group-item-light" : "")} onClick={() => (props.state.now.type === "tag" && props.state.now.tag.id === item.id) || props.state.change_type({type: "tag", tag_id: item.id})}>
             <MdLabelOutline /> {item.name}
-            <MdOutlineMoreVert className="float-end" style={{height: "100%"}} />
+            <MdOutlineMoreVert className="float-end" onClick={() => {
+              props.state.change_type({type: "edit_category", category_id: item.id, form: {name: item.name}});
+            }} />
           </li>
         ))
       }

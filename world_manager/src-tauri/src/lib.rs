@@ -28,6 +28,8 @@ pub fn run() {
             commands::get_worlds,
             commands::get_tags,
             commands::create_tag,
+            commands::delete_tag,
+            commands::change_tag,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

@@ -29,6 +29,34 @@ pub async fn create_tag(name: String) -> Result<Tag, sqlx::Error> {
   ).fetch_one(get_pool().await).await
 }
 
+pub async fn delete_tag(tag_id: i64) -> Result<bool, sqlx::Error> {
+  let res = sqlx::query!(
+    "
+    DELETE FROM tags
+    WHERE id = $1
+    ;
+    ",
+    tag_id
+  ).execute(get_pool().await).await?;
+
+  Ok(res.rows_affected() > 0)
+}
+
+pub async fn change(tag_id: i64, after: Tag) -> Result<(), sqlx::Error> {
+  sqlx::query!(
+    "
+    UPDATE tags
+    SET name = $1
+    WHERE id = $2
+    ;
+    ",
+    after.name,
+    tag_id
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Tag {
   pub id: i64,
