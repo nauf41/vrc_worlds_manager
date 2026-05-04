@@ -30,6 +30,11 @@ pub fn run() {
             commands::create_tag,
             commands::delete_tag,
             commands::change_tag,
+            commands::create_tag_group,
+            commands::get_tag_groups,
+            commands::edit_tag_group_name,
+            commands::delete_tag_group,
+            commands::upsert_tag_group_attachment,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

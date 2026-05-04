@@ -2,7 +2,7 @@ import { AppState } from "../viewmodels/app";
 import { useTagsStore } from "../viewmodels/tags";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
-import { Grid, List, MoreVertical, Plus, Settings } from "lucide-react";
+import { FolderPlus, Grid, List, MoreHorizontal, MoreVertical, Plus, Settings } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,7 +13,7 @@ export function SideBar(props: {state: AppState}) {
     <div className="col-span-4 flex flex-col border">
       <Command className="col-span-4 flex flex-col border">
         <CommandInput placeholder="Type a tag or search ..." />
-        <Button className="my-2">Add a tag folder ...</Button>
+        <Button className="my-2"><FolderPlus />Add a tag folder</Button>
         <CommandList>
           <CommandEmpty>No tags found.</CommandEmpty>
           <CommandGroup>
@@ -25,7 +25,10 @@ export function SideBar(props: {state: AppState}) {
             (
               <div className="flex">
                 <span>Seasons</span>
-                <Button size="icon" variant="ghost" className="h-4 w-4 ml-auto"><Plus className="h-3 w-3" /></Button>
+                <div className="ml-auto flex gap-2">
+                  <Button size="icon" variant="ghost" className="h-4 w-4"><MoreHorizontal className="h-3 w-3" /></Button>
+                  <Button size="icon" variant="ghost" className="h-4 w-4"><Plus className="h-3 w-3" /></Button>
+                </div>
               </div>
             )
           }>
@@ -45,8 +48,8 @@ export function SideBar(props: {state: AppState}) {
           </CommandGroup>
         </CommandList>
         <div className="mt-auto flex flex-col">
-          <div className="flex flex-row items-center">
-            <ToggleGroup className="p-2" type="single" variant="outline" value={props.state.display} onValueChange={(e) => {props.state.change_display(e as ("grid" | "list"))}}>
+          <div className="flex flex-row items-center mx-2 pb-2 gap-2">
+            <ToggleGroup className="" type="single" variant="outline" value={props.state.display} onValueChange={(e) => {props.state.change_display(e as ("grid" | "list"))}}>
               <ToggleGroupItem value="grid"><Grid /></ToggleGroupItem>
               <ToggleGroupItem value="list"><List /></ToggleGroupItem>
             </ToggleGroup>
