@@ -131,8 +131,9 @@ pub async fn get_world_id_by_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error
 }
 
 pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<Vec<World>, sqlx::Error> {
-  Ok(sqlx::query_as(
-    format!("
+  let res: Vec<sql_return_types::World> = sqlx::query_as!(
+    sql_return_types::World,
+    "
     SELECT
       worlds.id AS id,
       worlds.uuid AS uuid,
@@ -146,7 +147,8 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<
       worlds_cache_1.published_at as published_at,
       worlds_cache_1.does_support_windows as does_support_windows,
       worlds_cache_1.does_support_android as does_support_android,
-      worlds_cache_1.does_support_ios as does_support_ios
+      worlds_cache_1.does_support_ios as does_support_ios,
+      activities_1.self_visits as self_visits
     FROM worlds
     LEFT JOIN (
         SELECT *,
@@ -170,6 +172,13 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<
     LEFT JOIN tags
       ON tags_worlds.tags_id = tags.id
 
+    LEFT JOIN (
+      SELECT world_id, COUNT(*) AS self_visits
+      FROM activities
+      GROUP BY world_id
+    ) activities_1
+      ON worlds.id = activities_1.world_id
+
     WHERE
     ($1 IS NULL OR tags_worlds.tags_id = $1)
     AND ($2 IS NULL OR (CASE WHEN $2 THEN worlds.registered_at IS NOT NULL ELSE worlds.registered_at IS NULL END))
@@ -178,12 +187,12 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<
     ORDER BY worlds.registered_at DESC
     ;
     ",
-  ).as_str())
-  .bind(filter.tag_id)
-  .bind(filter.registered)
-  .bind(filter.classified)
-  .fetch_all(get_pool().await).await?
-  .into_iter().map(|q: sql_return_types::World| {
+    filter.tag_id,
+    filter.registered,
+    filter.classified,
+  ).fetch_all(get_pool().await).await?;
+
+  Ok(res.into_iter().map(|q: sql_return_types::World| {
     World {
       id: q.id,
       uuid: q.uuid,
@@ -198,6 +207,7 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<
       supports_windows: q.does_support_windows.map(|v| v != 0),
       supports_android: q.does_support_android.map(|v| v != 0),
       supports_ios: q.does_support_ios.map(|v| v != 0),
+      self_visits: q.self_visits,
     }
   }).collect())
 }
@@ -250,7 +260,8 @@ pub struct World {
 
   uuid: String,
 
-  publisher: i64,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  publisher: Option<i64>,
 
   #[serde(skip_serializing_if = "Option::is_none")]
   publisher_name: Option<String>,
@@ -281,6 +292,9 @@ pub struct World {
 
   #[serde(skip_serializing_if = "Option::is_none")]
   supports_ios: Option<bool>,
+
+  #[serde(skip_serializing_if = "Option::is_none")]
+  self_visits: Option<i64>,
 }
 
 mod sql_return_types {
@@ -288,7 +302,7 @@ mod sql_return_types {
   pub struct World {
     pub id: i64,
     pub uuid: String,
-    pub publisher: i64,
+    pub publisher: Option<i64>,
     pub publisher_name: Option<String>,
     pub description: Option<String>,
     pub title: Option<String>,
@@ -299,6 +313,7 @@ mod sql_return_types {
     pub does_support_windows: Option<i64>, // is stored as i64 but actually bool
     pub does_support_android: Option<i64>, // is stored as i64 but actually bool
     pub does_support_ios: Option<i64>, // is stored as i64 but actually bool
+    pub self_visits: Option<i64>,
   }
 
   #[derive(sqlx::FromRow)]
