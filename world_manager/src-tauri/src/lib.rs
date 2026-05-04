@@ -25,7 +25,9 @@ pub fn run() {
                 }
             });
             tauri::async_runtime::spawn(async {
-                log_watcher::main().await;
+                if let Err(err) = log_watcher::main().await {
+                    eprintln!("Error while running log watcher: {err}");
+                }
             });
             Ok(())
         })

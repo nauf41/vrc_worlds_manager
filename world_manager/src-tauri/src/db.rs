@@ -19,7 +19,7 @@ pub async fn get_pool() -> &'static sqlx::SqlitePool {
   }
 }
 
-pub async fn init() -> anyhow::Result<()> {
+pub async fn init() -> Result<(), sqlx::Error> {
   let pool = get_pool().await;
 
   // pragmas

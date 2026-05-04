@@ -1,7 +1,7 @@
 use crate::db::get_pool;
 
-pub async fn get_log(log_name: &str) -> anyhow::Result<Option<LogData>> {
-  let log = sqlx::query_as!(
+pub async fn get_log(log_name: &str) -> Result<Option<LogData>, sqlx::Error> {
+  sqlx::query_as!(
     LogData,
     "
     SELECT
@@ -12,12 +12,10 @@ pub async fn get_log(log_name: &str) -> anyhow::Result<Option<LogData>> {
     ;
     ",
     log_name
-  ).fetch_optional(get_pool().await).await?;
-
-  Ok(log)
+  ).fetch_optional(get_pool().await).await
 }
 
-pub async fn new_log(log_name: &str) -> anyhow::Result<()> {
+pub async fn new_log(log_name: &str) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "
     INSERT INTO log_files (name, read_at)
@@ -30,7 +28,7 @@ pub async fn new_log(log_name: &str) -> anyhow::Result<()> {
   Ok(())
 }
 
-pub async fn update_log_read_at(log_name: &str, read_at: i64) -> anyhow::Result<()> {
+pub async fn update_log_read_at(log_name: &str, read_at: i64) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "
     UPDATE log_files
