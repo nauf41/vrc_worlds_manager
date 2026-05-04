@@ -8,7 +8,7 @@ use chrono::{TimeZone, Utc};
 
 use crate::ipc::native_messaging::{World, WorldCache};
 
-pub async fn main() {
+pub async fn main() -> anyhow::Result<()> {
   let vrc_dir = {
     let mut path = PathBuf::from(env::home_dir().unwrap());
     path.push("AppData");
@@ -19,15 +19,17 @@ pub async fn main() {
   };
 
   loop {
-    let mut log_files: Vec<DirEntry> = std::fs::read_dir(&vrc_dir).unwrap()
-      .map(|entry| { entry.unwrap() }).collect();
+    let mut log_files: Vec<DirEntry> = std::fs::read_dir(&vrc_dir)?
+      .filter(|entry| { entry.is_ok() })
+      .map(|entry| { entry.unwrap() })
+      .collect();
 
     log_files.sort_by(|a,b| a.file_name().cmp(&b.file_name()));
 
     let mut process_target: Vec<(u64, DirEntry)> = vec![]; // begin_at, file
     for entry in log_files.into_iter() {
-      if let Some(v) = crate::db::log_files::get_log(&entry.file_name().into_string().unwrap()).await.unwrap() {
-        if (v.read_at as u64) + 1 < std::fs::metadata(entry.path()).unwrap().len() {
+      if let Some(v) = crate::db::log_files::get_log(&entry.file_name().into_string().unwrap()).await? {
+        if (v.read_at as u64) + 1 < std::fs::metadata(entry.path())?.len() {
           process_target.push(((v.read_at as u64) + 1, entry));
         }
       } else {
@@ -37,17 +39,17 @@ pub async fn main() {
 
     let mut process_target = process_target.into_iter().peekable();
     while let Some((begin, entry)) = process_target.next() {
-      let mut reader = BufReader::new(std::fs::File::open(entry.path()).unwrap());
-      reader.seek(std::io::SeekFrom::Start(begin)).unwrap();
+      let mut reader = BufReader::new(std::fs::File::open(entry.path())?);
+      reader.seek(std::io::SeekFrom::Start(begin))?;
 
-      process_file(entry.path().to_str().unwrap().to_owned(), reader).await;
+      process_file(entry.path().to_str().unwrap().to_owned(), reader).await?;
     }
 
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
   }
 }
 
-async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
+async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) -> anyhow::Result<()> {
 
   let header_regex = Regex::new(r"^[0-9]{4}\.[0-9]{2}\.[0-9]{2} [0-9]{4}\:[0-9]{4}\:[0-9]{4}\ .+? -  ").unwrap();
   let enter_room_uuid_lin_1_regex = Regex::new(r"^\[Behaviour\] Joining *$").unwrap();
@@ -62,7 +64,7 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
 
   let mut buf = String::new();
   loop {
-    let lin = reader.read_line(&mut buf).unwrap();
+    let lin = reader.read_line(&mut buf)?;
     if lin == 0 {
       break;
     }
@@ -78,17 +80,17 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
       }
       buf = right;
 
-      let years: i32 = left[0..4].parse().unwrap(); // 0, 1, 2, 3
+      let years: i32 = left[0..4].parse()?; // 0, 1, 2, 3
       // 4
-      let months: u32 = left[5..7].parse().unwrap(); // 5, 6
+      let months: u32 = left[5..7].parse()?; // 5, 6
       // 7
-      let days: u32 = left[8..10].parse().unwrap(); // 8, 9
+      let days: u32 = left[8..10].parse()?; // 8, 9
       // 10
-      let hours: u32 = left[11..13].parse().unwrap(); // 11, 12
+      let hours: u32 = left[11..13].parse()?; // 11, 12
       // 13
-      let minutes: u32 = left[14..16].parse().unwrap(); // 14, 15
+      let minutes: u32 = left[14..16].parse()?; // 14, 15
       // 16
-      let seconds: u32 = left[17..19].parse().unwrap(); // 17, 18
+      let seconds: u32 = left[17..19].parse()?; // 17, 18
       // 19
       let level = &left[20..27];
 
@@ -107,18 +109,18 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
       assert_ne!(0, reader.read_line(&mut buf).unwrap());
       if let Some(v) = enter_room_uuid_lin_2_regex.captures(&buf).unwrap().get(1) {
         session_world_uuid = Some(v.as_str().to_owned());
-        session_from = Some(now_header.unwrap().time);
+        session_from = Some(now_header.ok_or(anyhow::anyhow!("Missing log header"))?.time);
       }
     } else if enter_room_name_regex.is_match(&buf) {
       session_world_name = Some(enter_room_name_regex.captures(&buf).unwrap()[1].to_owned());
     } else if exit_room_regex.is_match(&buf) {
-      if crate::db::worlds::get_world_id_by_uuid(&session_world_uuid.clone().unwrap()).await.unwrap().is_none() {
-        crate::db::worlds::add_new_world(&session_world_uuid.clone().unwrap(), None).await.unwrap();
+      if crate::db::worlds::get_world_id_by_uuid(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?).await?.is_none() {
+        crate::db::worlds::add_new_world(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?, None).await.unwrap();
       }
       crate::db::worlds::new_session(
-        crate::db::worlds::get_world_id_by_uuid(session_world_uuid.as_ref().unwrap()).await.unwrap().unwrap(),
-        session_from.unwrap().timestamp(),
-        now_header.unwrap().time.timestamp()
+        crate::db::worlds::get_world_id_by_uuid(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?).await.unwrap().unwrap(),
+        session_from.clone().ok_or(anyhow::anyhow!("Missing session start time"))?.timestamp(),
+        now_header.clone().ok_or(anyhow::anyhow!("Missing log header"))?.time.timestamp()
       ).await.unwrap();
       now_header = None;
       if crate::db::log_files::get_log(&filepath).await.unwrap().is_none() {
@@ -126,7 +128,7 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
       }
 
       crate::db::worlds::add_world_cache(&World {
-        uuid: session_world_uuid.clone().unwrap(),
+        uuid: session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?,
       }, &WorldCache {
         description: None,
         title: session_world_name.clone(),
@@ -137,7 +139,7 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
         does_support_windows: None,
         does_support_android: None,
         does_support_ios: None,
-      }).await.unwrap();
+      }).await?;
 
       session_from = None;
       session_world_name = None;
@@ -146,6 +148,8 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) {
     }
     buf.clear();
   }
+
+  Ok(())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]

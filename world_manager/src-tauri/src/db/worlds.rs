@@ -11,7 +11,7 @@ fn boolo_to_i64o(b: &Option<bool>) -> Option<i64> {
 }
 
 /// just add worlds to the DB, not register
-pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> anyhow::Result<()> {
+pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "INSERT INTO worlds (uuid, publisher) VALUES (
       ?,
@@ -24,7 +24,7 @@ pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> anyhow::Result
   Ok(())
 }
 
-pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache: &crate::ipc::native_messaging::WorldCache) -> anyhow::Result<()> {
+pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache: &crate::ipc::native_messaging::WorldCache) -> Result<(), sqlx::Error> {
   let now = chrono::Utc::now().timestamp_millis();
   let visits = f64o_to_i64o(&cache.visits);
   let favorites = f64o_to_i64o(&cache.favorites);
@@ -76,7 +76,7 @@ pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache:
 }
 
 /// just add worlds to the DB, not register
-pub async fn add_new_world_if_not_exists(uuid: &str) -> anyhow::Result<()> {
+pub async fn add_new_world_if_not_exists(uuid: &str) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "INSERT OR IGNORE INTO worlds (uuid) VALUES (
       ?
@@ -87,7 +87,7 @@ pub async fn add_new_world_if_not_exists(uuid: &str) -> anyhow::Result<()> {
   Ok(())
 }
 
-pub async fn add_new_publisher(uuid: &str, name: &Option<String>) -> anyhow::Result<i64> {
+pub async fn add_new_publisher(uuid: &str, name: &Option<String>) -> Result<i64, sqlx::Error> {
   sqlx::query!(
     "INSERT OR IGNORE INTO users (uuid) VALUES (?);",
     uuid
@@ -110,7 +110,7 @@ pub async fn add_new_publisher(uuid: &str, name: &Option<String>) -> anyhow::Res
   Ok(user_id)
 }
 
-pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
+pub async fn does_world_exist(uuid: &str) -> Result<bool, sqlx::Error> {
   let len: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM worlds WHERE uuid = ?;", uuid)
     .fetch_one(get_pool().await)
     .await?;
@@ -118,7 +118,7 @@ pub async fn does_world_exist(uuid: &str) -> anyhow::Result<bool> {
   Ok(len > 0)
 }
 
-pub async fn get_world_id_by_uuid(uuid: &str) -> anyhow::Result<Option<i64>> {
+pub async fn get_world_id_by_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error> {
   let id = sqlx::query_scalar!("SELECT id FROM worlds WHERE uuid = ?;", uuid)
     .fetch_optional(get_pool().await)
     .await?;
@@ -130,8 +130,8 @@ pub async fn get_world_id_by_uuid(uuid: &str) -> anyhow::Result<Option<i64>> {
   }
 }
 
-pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Vec<World> {
-  sqlx::query_as(
+pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<Vec<World>, sqlx::Error> {
+  Ok(sqlx::query_as(
     format!("
     SELECT
       worlds.id AS id,
@@ -182,8 +182,8 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Vec<Wor
   .bind(filter.tag_id)
   .bind(filter.registered)
   .bind(filter.classified)
-  .fetch_all(get_pool().await).await.unwrap()
-  .into_iter().map(|q: SqlReturnTypes::World| {
+  .fetch_all(get_pool().await).await?
+  .into_iter().map(|q: sql_return_types::World| {
     World {
       id: q.id,
       uuid: q.uuid,
@@ -199,10 +199,10 @@ pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Vec<Wor
       supports_android: q.does_support_android.map(|v| v != 0),
       supports_ios: q.does_support_ios.map(|v| v != 0),
     }
-  }).collect()
+  }).collect())
 }
 
-pub async fn update_registered(id: i64, is_registered: bool) -> anyhow::Result<()> {
+pub async fn update_registered(id: i64, is_registered: bool) -> Result<(), sqlx::Error> {
   let registered_at = if is_registered {
     Some(chrono::Utc::now().timestamp())
   } else {
@@ -218,7 +218,7 @@ pub async fn update_registered(id: i64, is_registered: bool) -> anyhow::Result<(
   Ok(())
 }
 
-pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> anyhow::Result<()> {
+pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "INSERT INTO activities (world_id, started_at, ended_at) VALUES (
       ?,
@@ -283,7 +283,7 @@ pub struct World {
   supports_ios: Option<bool>,
 }
 
-mod SqlReturnTypes {
+mod sql_return_types {
   #[derive(sqlx::FromRow)]
   pub struct World {
     pub id: i64,
