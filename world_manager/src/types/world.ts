@@ -1,7 +1,7 @@
 export type World = {
   id: number,
   uuid: string,
-  publisher: number,
+  publisher?: number,
   publisher_name?: string,
   description?: string,
   title?: string,
@@ -12,6 +12,7 @@ export type World = {
   supports_windows?: boolean,
   supports_android?: boolean,
   supports_ios?: boolean,
+  self_visits?: number,
 }
 
 export type WorldQueryFilters = {

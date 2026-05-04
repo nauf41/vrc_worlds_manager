@@ -22,8 +22,8 @@ function World(props: {world: TWorld}) {
           <h5 className="card-title">{props.world.title}</h5>
           <span className="card-text"><span className="text-body-tertiary">By</span> {props.world.publisher_name}</span><br />
           <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdFavoriteBorder /> {props.world.favorites}</span>
-          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdGroups /> {props.world.visits}</span>
-          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdOutlineMeetingRoom /> {props.world.capacity}</span>
+          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdGroups /> {props.world.capacity}</span>
+          <span className="mx-1" style={{"whiteSpace": "nowrap"}}><MdOutlineMeetingRoom /> {props.world.self_visits}</span>
         </div>
       </div>
     </div>

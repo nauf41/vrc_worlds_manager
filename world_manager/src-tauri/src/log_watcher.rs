@@ -9,6 +9,7 @@ use chrono::{TimeZone, Utc};
 use crate::ipc::native_messaging::{World, WorldCache};
 
 pub async fn main() -> anyhow::Result<()> {
+  log::debug!("Log watcher started");
   let vrc_dir = {
     let mut path = PathBuf::from(env::home_dir().unwrap());
     path.push("AppData");
@@ -17,17 +18,28 @@ pub async fn main() -> anyhow::Result<()> {
     path.push("VRChat");
     path
   };
+  log::debug!("Watching log files in {:?}", vrc_dir);
 
   loop {
     let mut log_files: Vec<DirEntry> = std::fs::read_dir(&vrc_dir)?
       .filter(|entry| { entry.is_ok() })
       .map(|entry| { entry.unwrap() })
+      .filter(|entry| {
+        if let Some(s) = entry.file_name().to_str() {
+          if s.starts_with("output_log_") {
+            return true;
+          }
+        }
+        false
+       })
       .collect();
+    log::debug!("Found log files: {:?}", log_files);
 
     log_files.sort_by(|a,b| a.file_name().cmp(&b.file_name()));
 
     let mut process_target: Vec<(u64, DirEntry)> = vec![]; // begin_at, file
     for entry in log_files.into_iter() {
+      log::debug!("Attempting to process log file: {:?}", entry.path());
       if let Some(v) = crate::db::log_files::get_log(&entry.file_name().into_string().unwrap()).await? {
         if (v.read_at as u64) + 1 < std::fs::metadata(entry.path())?.len() {
           process_target.push(((v.read_at as u64) + 1, entry));
@@ -42,31 +54,38 @@ pub async fn main() -> anyhow::Result<()> {
       let mut reader = BufReader::new(std::fs::File::open(entry.path())?);
       reader.seek(std::io::SeekFrom::Start(begin))?;
 
-      process_file(entry.path().to_str().unwrap().to_owned(), reader).await?;
+      let (len, dat) = process_file(reader)?;
+      crate::db::log_files::update_log_read_at(entry.file_name().to_str().ok_or(anyhow::anyhow!("Log file name missing"))?, len).await.unwrap();
+      todo!("implement DB writing");
     }
 
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
   }
 }
 
-async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) -> anyhow::Result<()> {
+fn process_file<R: std::io::BufRead + std::io::Seek>(mut reader: R) -> anyhow::Result<(i64, Vec<Session>)> {
+  //! @returns line number by which processing is done
 
-  let header_regex = Regex::new(r"^[0-9]{4}\.[0-9]{2}\.[0-9]{2} [0-9]{4}\:[0-9]{4}\:[0-9]{4}\ .+? -  ").unwrap();
-  let enter_room_uuid_lin_1_regex = Regex::new(r"^\[Behaviour\] Joining *$").unwrap();
-  let enter_room_uuid_lin_2_regex = Regex::new(r"(wrld_.+?):").unwrap();
-  let enter_room_name_regex = Regex::new(r"^\[Behaviour\] Entering Room: (.+)$").unwrap();
-  let exit_room_regex = Regex::new(r"OnLeftRoom").unwrap();
+  let header_regex = Regex::new(r"^[0-9]{4}\.[0-9]{2}\.[0-9]{2} [0-9]{2}\:[0-9]{2}\:[0-9]{2}\ .+? -  ").unwrap();
+  let enter_room_uuid_regex = Regex::new(r"^\[Behaviour\] Joining (wrld_.+?):").unwrap();
+  let enter_room_name_regex = Regex::new(r"^\[Behaviour\] Entering Room\: (.+)\n?$").unwrap();
+  let exit_room_regex = Regex::new(r"^\[Behaviour\] OnLeftRoom").unwrap();
 
   let mut now_header: Option<LogHeader> = None;
   let mut session_from: Option<chrono::DateTime<Utc>> = None;
   let mut session_world_name: Option<String> = None;
   let mut session_world_uuid: Option<String> = None;
 
+  let mut read_until: i64 = 0;
+  let mut sessions: Vec<Session> = vec![];
+
   let mut buf = String::new();
   loop {
-    let lin = reader.read_line(&mut buf)?;
-    if lin == 0 {
-      break;
+    if buf.is_empty() {
+      let lin = reader.read_line(&mut buf)?;
+      if lin == 0 {
+        break;
+      }
     }
 
     // if header
@@ -104,52 +123,30 @@ async fn process_file(filepath: String, mut reader: BufReader<std::fs::File>) ->
       };
 
       now_header = Some(LogHeader::new(time, level));
-    } else if enter_room_uuid_lin_1_regex.is_match(&buf) {
-      buf.clear();
-      assert_ne!(0, reader.read_line(&mut buf).unwrap());
-      if let Some(v) = enter_room_uuid_lin_2_regex.captures(&buf).unwrap().get(1) {
-        session_world_uuid = Some(v.as_str().to_owned());
-        session_from = Some(now_header.ok_or(anyhow::anyhow!("Missing log header"))?.time);
-      }
+      continue;
+    }
+    if enter_room_uuid_regex.is_match(&buf) {
+      session_world_uuid = Some(enter_room_uuid_regex.captures(&buf).unwrap()[1].to_owned());
+      session_from = Some(now_header.ok_or(anyhow::anyhow!("Missing log header"))?.time);
     } else if enter_room_name_regex.is_match(&buf) {
       session_world_name = Some(enter_room_name_regex.captures(&buf).unwrap()[1].to_owned());
     } else if exit_room_regex.is_match(&buf) {
-      if crate::db::worlds::get_world_id_by_uuid(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?).await?.is_none() {
-        crate::db::worlds::add_new_world(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?, None).await.unwrap();
-      }
-      crate::db::worlds::new_session(
-        crate::db::worlds::get_world_id_by_uuid(&session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?).await.unwrap().unwrap(),
-        session_from.clone().ok_or(anyhow::anyhow!("Missing session start time"))?.timestamp(),
-        now_header.clone().ok_or(anyhow::anyhow!("Missing log header"))?.time.timestamp()
-      ).await.unwrap();
-      now_header = None;
-      if crate::db::log_files::get_log(&filepath).await.unwrap().is_none() {
-        crate::db::log_files::new_log(&filepath).await.unwrap();
-      }
-
-      crate::db::worlds::add_world_cache(&World {
-        uuid: session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?,
-      }, &WorldCache {
-        description: None,
-        title: session_world_name.clone(),
-        visits: None,
-        favorites: None,
-        capacity: None,
-        published_at: None,
-        does_support_windows: None,
-        does_support_android: None,
-        does_support_ios: None,
-      }).await?;
+      sessions.push(Session::new(
+        session_from.clone().ok_or(anyhow::anyhow!("Missing session start time"))?,
+        now_header.ok_or(anyhow::anyhow!("Missing session end time (in log header)"))?.time,
+        session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?,
+        session_world_name.clone().ok_or(anyhow::anyhow!("Missing world name"))?,
+      ));
 
       session_from = None;
       session_world_name = None;
       session_world_uuid = None;
-      crate::db::log_files::update_log_read_at(&filepath, reader.seek(std::io::SeekFrom::Current(0)).unwrap() as i64).await.unwrap();
+      read_until = reader.seek(std::io::SeekFrom::Current(0)).unwrap() as i64;
     }
     buf.clear();
   }
 
-  Ok(())
+  Ok((read_until, sessions))
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
@@ -173,4 +170,127 @@ enum LogLevel {
   Warning,
   Error,
   Unknown,
+}
+
+impl LogLevel {
+  fn into_str(self) -> &'static str {
+    match self {
+      LogLevel::Debug => "Debug",
+      LogLevel::Warning => "Warning",
+      LogLevel::Error => "Error",
+      LogLevel::Unknown => "Unknown",
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct Session {
+  started_at: chrono::DateTime<Utc>,
+  ended_at: chrono::DateTime<Utc>,
+  world_uuid: String,
+  world_name: String,
+}
+
+impl Session {
+  pub fn new(started_at: chrono::DateTime<Utc>, ended_at: chrono::DateTime<Utc>, world_uuid: String, world_name: String) -> Self {
+    Self {
+      started_at,
+      ended_at,
+      world_name,
+      world_uuid,
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use chrono::{Datelike, Timelike};
+
+use super::*;
+  use std::io::{Cursor, BufReader};
+
+  struct LogBuilder {
+    header: LogHeader,
+    body: String,
+  }
+
+  impl LogBuilder {
+    fn new(header: LogHeader, body: String) -> Self {
+      Self {
+        header,
+        body,
+      }
+    }
+  }
+
+  impl Into<String> for LogBuilder {
+    fn into(self) -> String {
+      //2026.05.03 22:46:35 Debug      -  [Behaviour] Spent 0.004882813s attaching initial component handlers.
+      format!("{:04}.{:02}.{:02} {:02}:{:02}:{:02} {:<11}-  {}\n", self.header.time.year(), self.header.time.month(), self.header.time.day(), self.header.time.hour(), self.header.time.minute(), self.header.time.second(), self.header.level.into_str(), self.body)
+    }
+  }
+
+  fn get_bufreader_from_string(s: &str) -> BufReader<Cursor<String>> {
+    BufReader::new(
+      Cursor::new(
+        s.to_owned()
+      )
+    )
+  }
+
+  #[test]
+  fn check_empty() {
+    assert_eq!(
+      (0i64, vec![]),
+      process_file(get_bufreader_from_string("")).unwrap(),
+    );
+  }
+
+  #[test]
+  fn check_single_session() {
+    let log: Vec<(LogHeader, &str)> = vec![
+      ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap(), LogLevel::Debug), "[Behaviour] Entering Room: test" ),
+      ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(), LogLevel::Debug), "[Behaviour] Joining wrld_1234567890:00000" ),
+      ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(), LogLevel::Debug), "[Behaviour] OnLeftRoom" ),
+    ];
+    let log: Vec<String> = log.iter().map(|p| { LogBuilder::new(p.0, p.1.to_owned()).into() }).collect();
+
+    assert_eq!(
+      (log.iter().map(|s| s.len() as i64).sum(), vec![Session::new(
+        Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
+        Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(),
+        "wrld_1234567890".to_owned(),
+        "test".to_owned(),
+      )]),
+      process_file(get_bufreader_from_string(&log.join(""))).unwrap(),
+    );
+  }
+
+  #[test]
+  fn check_multiple_sessions() {
+      let log: Vec<(LogHeader, &str)> = vec![
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap(), LogLevel::Debug), "[Behaviour] Entering Room: test" ),
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(), LogLevel::Debug), "[Behaviour] Joining wrld_1234567890:00000" ),
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(), LogLevel::Debug), "[Behaviour] OnLeftRoom" ),
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 2, 0, 0, 0).unwrap(), LogLevel::Debug), "[Behaviour] Entering Room: test2" ),
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 2, 0, 0, 2).unwrap(), LogLevel::Debug), "[Behaviour] Joining wrld_2234567890:00000" ),
+          ( LogHeader::new(Utc.with_ymd_and_hms(2000, 1, 2, 0, 5, 0).unwrap(), LogLevel::Debug), "[Behaviour] OnLeftRoom" ),
+      ];
+      let log: Vec<String> = log.iter().map(|p| { LogBuilder::new(p.0, p.1.to_owned()).into() }).collect();
+
+      assert_eq!(
+        (log.iter().map(|s| s.len() as i64).sum(), vec![Session::new(
+          Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
+          Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(),
+          "wrld_1234567890".to_owned(),
+          "test".to_owned(),
+        ), Session::new(
+          Utc.with_ymd_and_hms(2000, 1, 2, 0, 0, 2).unwrap(),
+          Utc.with_ymd_and_hms(2000, 1, 2, 0, 5, 0).unwrap(),
+          "wrld_2234567890".to_owned(),
+          "test2".to_owned(),
+        )]),
+        process_file(get_bufreader_from_string(&log.join(""))).unwrap(),
+      );
+    }
 }

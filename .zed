@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Debug Specific Test",
+    "type": "executable",
+    "command": "cargo",
+    "args": [
+      "test",
+      "--no-run",
+      "--lib",
+      "--package", "world_manager",
+      "--",
+      "tests::it_works",
+      "--exact",
+      "--nocapture"
+    ]
+  }
+]
