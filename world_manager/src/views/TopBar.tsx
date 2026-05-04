@@ -7,8 +7,7 @@ export function TopBar(props: {state: AppState}) {
 
   return (
     <div className="d-flex gap-2 p-2 flex-shrink-0" style={{borderBottom: "1px solid #ccc"}}>
-      <button className="btn btn-dark" onClick={() => {createTag("Unnamed Category").then(r => appState.change_type({type: "edit_category", category_id: r.id}))}}><MdOutlineNewLabel /> Add new category</button>
-      <button className="btn btn-dark" onClick={() => appState.change_type({type: "add_world"})}><MdAdd /> Add new world</button>
+      <button className="btn btn-dark" onClick={() => {createTag("Unnamed Category").then(r => appState.change_type({type: "edit_category", form: {name: "Unnamed Category"}, category_id: r.id}))}}><MdOutlineNewLabel /> Add new category</button>
       <button className="btn btn-dark" onClick={() => appState.change_type({type: "settings"})}><MdOutlineSettings /> Settings</button>
 
       <div className="ms-auto">

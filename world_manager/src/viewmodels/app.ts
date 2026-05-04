@@ -9,6 +9,7 @@ export interface AppState {
   change_type: (query: ChangeTypeQuery) => Promise<void>,
   change_display: (display: Display) => void,
   update: () => Promise<void>,
+  update_with: (a: NowSelected) => void,
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -17,11 +18,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   change_type: async (query) => {
     switch (query.type) {
       case "edit_category":
-        set({now: {type: "edit_category", form: {name: ""}, category_id: query.category_id}});
-        break;
-
-      case "add_world":
-        set({now: {type: "add_world", form: {world_url: "", tags: []}}});
+        set({now: {type: "edit_category", form: query.form, category_id: query.category_id}});
         break;
 
       case "settings":
@@ -67,7 +64,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         break;
       }
     }
-  }
+  },
+  update_with: (a) => set({now: a}),
 }))
 
 listen('new-world', () => {
@@ -86,9 +84,8 @@ listen('registered-status-updated', () => {
   useAppStore.getState().update();
 })
 
-type NowSelected =
+export type NowSelected =
 | {type: "edit_category", form: CreateCategoryForm, category_id: number}
-| {type: "add_world", form: AddWorldForm}
 | {type: "settings", form: SettingsForm}
 | {type: "dashboard"}
 | {type: "all-worlds", worlds: World[]}
@@ -96,9 +93,8 @@ type NowSelected =
 | {type: "unclassified-worlds", worlds: World[]}
 | {type: "tag", tag: Tag, worlds: World[]}
 
-type ChangeTypeQuery =
-| {type: "edit_category", category_id: number}
-| {type: "add_world"}
+export type ChangeTypeQuery =
+| {type: "edit_category", category_id: number, form: CreateCategoryForm}
 | {type: "settings"}
 | {type: "dashboard"}
 | {type: "all-worlds"}
@@ -106,23 +102,18 @@ type ChangeTypeQuery =
 | {type: "unclassified-worlds"}
 | {type: "tag", tag_id: number}
 
-type Tag = {
+export type Tag = {
   id: number,
   name: string,
 }
 
-type Display = "grid" | "list";
+export type Display = "grid" | "list";
 
-type CreateCategoryForm = {
+export type CreateCategoryForm = {
   name: string,
 }
 
-type AddWorldForm = {
-  world_url: string,
-  tags: Tag[],
-}
-
-type SettingsForm = {
+export type SettingsForm = {
   use_discord_link: boolean,
   discord_token: string,
 }

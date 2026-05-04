@@ -3,7 +3,6 @@ import { SideBar } from "./SideBar";
 import { Worlds } from "./Worlds";
 import { useAppStore } from "../viewmodels/app";
 import { CategorySettings } from "./CategorySettings";
-import { AddWorldForm } from "./AddWorldForm";
 import { Settings } from "./Settings";
 import { useTagsStore } from "../viewmodels/tags";
 import "../viewmodels/app";
@@ -20,10 +19,7 @@ function App() {
         <div className="row flex-grow-1 min-vh-0 g-0 overflow-hidden">
           <SideBar state={appState} />
           { appState.now.type === 'edit_category' && (
-            <CategorySettings />
-          )}
-          { appState.now.type === 'add_world' && (
-            <AddWorldForm />
+            <CategorySettings state={appState} updateState={appState.update_with} />
           )}
           { appState.now.type === 'settings' && (
             <Settings />
