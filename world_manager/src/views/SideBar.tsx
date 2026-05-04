@@ -1,12 +1,64 @@
-import { MdApps, MdHistory, MdLabelOutline, MdOutlineDashboard, MdOutlineInbox, MdOutlineMoreVert } from "react-icons/md";
 import { AppState } from "../viewmodels/app";
 import { useTagsStore } from "../viewmodels/tags";
+import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
+import { Grid, List, MoreVertical, Plus, Settings } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge";
 
 export function SideBar(props: {state: AppState}) {
   const tags = useTagsStore();
 
   return (
-    <div className="col-3 h-100 overflow-auto list-group list-group-flush" style={{borderRight: "1px solid #ccc"}}>
+    <div className="col-span-4 flex flex-col border">
+      <Command className="col-span-4 flex flex-col border">
+        <CommandInput placeholder="Type a tag or search ..." />
+        <Button className="my-2">Add a tag folder ...</Button>
+        <CommandList>
+          <CommandEmpty>No tags found.</CommandEmpty>
+          <CommandGroup>
+            <CommandItem><Badge variant="outline">Auto</Badge>All</CommandItem>
+            <CommandItem><Badge variant="outline">Auto</Badge>Recently Visited</CommandItem>
+            <CommandItem><Badge variant="outline">Auto</Badge>Unclassified</CommandItem>
+          </CommandGroup>
+          <CommandGroup heading={
+            (
+              <div className="flex">
+                <span>Seasons</span>
+                <Button size="icon" variant="ghost" className="h-4 w-4 ml-auto"><Plus className="h-3 w-3" /></Button>
+              </div>
+            )
+          }>
+            {
+              tags.tags.filter((_, idx) => idx < 4).map((item, index) => ((
+                <CommandItem key={index} className="p-2">
+                  <span>{item.name}</span>
+                  <span className="hidden">{item.id}</span>
+                  <CommandShortcut>
+                    <Button size="icon" variant="ghost" className="h-4 w-4 opacity-0 transition-opacity group-hover/command-item:opacity-100">
+                      <MoreVertical className="h-3 w-3" />
+                    </Button>
+                  </CommandShortcut>
+                </CommandItem>
+              )))
+            }
+          </CommandGroup>
+        </CommandList>
+        <div className="mt-auto flex flex-col">
+          <div className="flex flex-row items-center">
+            <ToggleGroup className="p-2" type="single" variant="outline" value={props.state.display} onValueChange={(e) => {props.state.change_display(e as ("grid" | "list"))}}>
+              <ToggleGroupItem value="grid"><Grid /></ToggleGroupItem>
+              <ToggleGroupItem value="list"><List /></ToggleGroupItem>
+            </ToggleGroup>
+            <Button className="p-2 flex-1" variant="outline" onClick={() => props.state.change_type({type: "settings"})}><Settings /> Settings</Button>
+          </div>
+        </div>
+      </Command>
+    </div>
+  )
+}
+
+/* <div className="col-span-3 bg-gray-800">
       <li className={"list-group-item list-group-item-action" + (props.state.now.type === "dashboard" ? " list-group-item-light" : "")} onClick={() => props.state.now.type === "dashboard" || props.state.change_type({type: "dashboard"})}><MdOutlineDashboard /> Dashboard</li>
       <li className={"list-group-item list-group-item-action" + (props.state.now.type === "all-worlds" ? " list-group-item-light" : "")} onClick={() => props.state.now.type === "all-worlds" || props.state.change_type({type: "all-worlds"})}><MdApps /> All<MdOutlineMoreVert className="float-end" style={{height: "100%"}} /></li>
       <li className={"list-group-item list-group-item-action" + (props.state.now.type === "recent-worlds" ? " list-group-item-light" : "")} onClick={() => props.state.now.type === "recent-worlds" || props.state.change_type({type: "recent-worlds"})}><MdHistory /> Recently Visited<MdOutlineMoreVert className="float-end" style={{height: "100%"}} /></li>
@@ -21,6 +73,4 @@ export function SideBar(props: {state: AppState}) {
           </li>
         ))
       }
-    </div>
-  )
-}
+    </div> */
