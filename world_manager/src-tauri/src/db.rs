@@ -132,5 +132,22 @@ pub async fn init() -> Result<(), sqlx::Error> {
     );"
   ).execute(pool).await?;
 
+  sqlx::query!(
+    "CREATE TABLE IF NOT EXISTS tag_groups (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL
+    );"
+  ).execute(pool).await?;
+
+  sqlx::query!(
+    "CREATE TABLE IF NOT EXISTS tag_groups_tags (
+      tag_groups_id INTEGER NOT NULL,
+      tags_id INTEGER NOT NULL UNIQUE,
+      PRIMARY KEY (tag_groups_id, tags_id),
+      FOREIGN KEY (tag_groups_id) REFERENCES tag_groups(id),
+      FOREIGN KEY (tags_id) REFERENCES tags(id)
+    );"
+  ).execute(pool).await?;
+
   Ok(())
 }

@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { changeTag, deleteTag, getTags } from "../models/db"
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import type { Tag } from "../types/tags";
 
 interface TagsState {
   tags: Tag[],
@@ -32,8 +32,3 @@ listen('world-cache-updated', () => {
 listen('registered-status-updated', () => {
   useTagsStore.getState().update();
 })
-
-export type Tag = {
-  id: number,
-  name: string,
-}
