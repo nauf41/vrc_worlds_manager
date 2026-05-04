@@ -1,4 +1,3 @@
-import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
 import { Worlds } from "./Worlds";
 import { useAppStore } from "../viewmodels/app";
@@ -13,11 +12,10 @@ function App() {
   useTagsStore.getState().update();
 
   return (
-    <main className="d-flex flex-column vh-100 overflow-hidden">
-      <TopBar state={appState} />
-      <div className="container-fluid flex-grow-1 d-flex flex-column min-vh-0 overflow-hidden px-0">
-        <div className="row flex-grow-1 min-vh-0 g-0 overflow-hidden">
-          <SideBar state={appState} />
+    <main className="flex flex-col bg-background text-foreground h-screen">
+      <div className="grid grid-cols-12 flex-1">
+        <SideBar state={appState} />
+        <div className="col-span-8">
           { appState.now.type === 'edit_category' && (
             <CategorySettings state={appState} updateState={appState.update_with} />
           )}
@@ -25,8 +23,8 @@ function App() {
             <Settings />
           )}
           { appState.now.type === 'dashboard' && (
-             <div className="col-9 h-100 overflow-y-auto overflow-x-hidden d-flex flex-column">
-              <h1 className="m-3">Dashboard</h1>
+            <div className="">
+              <h1 className="">Dashboard</h1>
             </div>
           )}
           { (appState.now.type === 'all-worlds' || appState.now.type === 'recent-worlds' || appState.now.type === 'unclassified-worlds' || appState.now.type === 'tag') && (
