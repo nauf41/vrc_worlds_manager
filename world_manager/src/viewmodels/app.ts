@@ -2,6 +2,7 @@ import { create } from "zustand/react";
 import { World } from "../types/world";
 import { getWorlds } from "../models/db";
 import { listen } from "@tauri-apps/api/event";
+import { Tag } from "@/types/tags";
 
 export interface AppState {
   now: NowSelected,
@@ -101,11 +102,6 @@ export type ChangeTypeQuery =
 | {type: "recent-worlds"}
 | {type: "unclassified-worlds"}
 | {type: "tag", tag_id: number}
-
-export type Tag = {
-  id: number,
-  name: string,
-}
 
 export type Display = "grid" | "list";
 

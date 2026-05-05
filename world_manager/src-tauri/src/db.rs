@@ -3,6 +3,7 @@ use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 pub mod worlds;
 pub mod tags;
 pub mod log_files;
+pub mod tag_groups;
 
 pub async fn get_pool() -> &'static sqlx::SqlitePool {
   static POOL: OnceLock<sqlx::SqlitePool> = OnceLock::new();
@@ -71,6 +72,10 @@ pub async fn init() -> Result<(), sqlx::Error> {
   ).execute(pool).await?;
 
   sqlx::query!(
+    r#"INSERT OR IGNORE INTO tags (id, name) VALUES (0, "__FAVORITED__");"#
+  ).execute(pool).await?;
+
+  sqlx::query!(
     "CREATE TABLE IF NOT EXISTS tags_worlds (
       tags_id INTEGER NOT NULL,
       worlds_id INTEGER NOT NULL,
@@ -117,6 +122,7 @@ pub async fn init() -> Result<(), sqlx::Error> {
   sqlx::query!(
     "CREATE TABLE IF NOT EXISTS users_cache (
       id INTEGER PRIMARY KEY,
+      cached_at INTEGER NOT NULL,
       user_id INTEGER,
       name TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
