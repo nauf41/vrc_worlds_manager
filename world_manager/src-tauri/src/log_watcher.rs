@@ -52,7 +52,7 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
       }
     }
 
-    log::info!("Log files to process: {:?}", process_target.iter().map(|p| (p.1.file_name(), p.0)).collect::<Vec<_>>());
+    log::debug!("Log files to process: {:?}", process_target.iter().map(|p| (p.1.file_name(), p.0)).collect::<Vec<_>>());
 
     let mut process_target = process_target.into_iter().peekable();
     while let Some((begin, entry)) = process_target.next() {

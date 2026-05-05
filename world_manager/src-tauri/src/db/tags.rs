@@ -72,6 +72,25 @@ pub async fn get_with_children() -> Result<Vec<(Tag, Vec<i64>)>, sqlx::Error> {
   Ok(res)
 }
 
+pub async fn get_without_taggroup() -> Result<Vec<Tag>, sqlx::Error> {
+  sqlx::query_as!(
+    Tag,
+    "
+    SELECT
+      id,
+      name
+    FROM tags
+    WHERE id != 0 AND (
+      SELECT COUNT(*)
+      FROM tag_groups_tags tgt
+      WHERE tgt.tags_id = tags.id
+    ) = 0
+    ORDER BY name ASC
+    ;
+    ",
+  ).fetch_all(get_pool().await).await
+}
+
 pub async fn get_favorited_worlds() -> Result<Vec<i64>, sqlx::Error> {
   let res = sqlx::query_as!(
     WorldsIdOnly,
@@ -136,6 +155,15 @@ pub async fn update(tag_id: i64, after: Tag) -> Result<(), sqlx::Error> {
 }
 
 pub async fn delete(tag_id: i64) -> Result<bool, sqlx::Error> {
+  sqlx::query!(
+    "
+    DELETE FROM tag_groups_tags
+    WHERE tags_id = $1
+    ;
+    ",
+    tag_id
+  ).execute(get_pool().await).await?;
+
   sqlx::query!(
     "
     DELETE FROM tags_worlds
