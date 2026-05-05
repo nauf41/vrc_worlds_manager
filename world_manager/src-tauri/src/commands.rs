@@ -53,3 +53,5 @@ pub async fn delete_tag_group(taggroupid: i64) -> bool {
 pub async fn upsert_tag_group_attachment(tagid: i64, taggroupid: Option<i64>) -> bool {
   tags::upsert_tag_group_attachment(tagid, taggroupid).await.is_ok()
 }
+
+// TODO tag_groupsの扱いについて再考

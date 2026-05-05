@@ -66,11 +66,17 @@ pub async fn create_tag_group(name: String) -> Result<sql_return_structs::TagGro
 }
 
 pub async fn get_tag_groups() -> Result<Vec<sql_return_structs::TagGroup>, sqlx::Error> {
-  sqlx::query_as!(
-    sql_return_structs::TagGroup,
-    "
-    SELECT id, name FROM tag_groups ORDER BY name ASC;"
-  ).fetch_all(get_pool().await).await
+  // sqlx::query_as!(
+  //   sql_return_structs::TagGroup,
+  //   "
+  //   SELECT id, name
+  //   FROM tag_groups
+  //   ORDER BY name ASC
+  //   ;
+  //   "
+  // ).fetch_all(get_pool().await).await
+
+  Ok(vec![])
 }
 
 pub async fn edit_tag_group_name(tag_group_id: i64, name: String) -> Result<(), sqlx::Error> {
