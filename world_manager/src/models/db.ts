@@ -1,66 +1,97 @@
+import { Tag, TagGroup } from "@/types/tags";
+import { SortBy, World, WorldQueryFilters } from "@/types/world";
 import { invoke } from "@tauri-apps/api/core";
-import { SortBy, World, WorldQueryFilters } from "../types/world";
-import { useTagsStore } from "../viewmodels/tags";
-import type {TagGroup, Tag} from "../types/tags";
 
-export function getWorlds(filter: WorldQueryFilters, sortBy: SortBy): Promise<World[]> {
-  return new Promise(async(res, rej) => {
-    try {
-      const result = await invoke("get_worlds", {filter, sortBy});
-      res(result as World[]);
-    } catch (err) {
-      rej(err);
-    }
-  })
+export async function addWorld(uuid: string, publisher?: number): Promise<boolean> {
+  return await invoke("add_world", { uuid, publisher: publisher ?? null });
 }
 
-export function getTags(): Promise<Tag[]> {
-  return new Promise(async(res, rej) => {
-    try {
-      const result = await invoke("get_tags");
-      res(result as Tag[]);
-    } catch (err) {
-      rej(err);
-    }
-  })
+export async function getWorlds(filter: WorldQueryFilters, sortBy: SortBy): Promise<World[] | null> {
+  return await invoke("get_worlds", { filter, sortBy });
 }
 
-export function createTag(name: string): Promise<Tag> {
-  return new Promise(async(res, rej) => {
-    try {
-      const result = await invoke("create_tag", {name});
-      res(result as Tag);
-      useTagsStore.getState().update();
-    } catch (err) {
-      rej(err);
-    }
-  })
+export async function addWorldcache(
+  uuid: string,
+  description?: string,
+  title?: string,
+  visits?: number,
+  favorites?: number,
+  capacity?: number,
+  publishedAt?: number,
+  doesSupportWindows?: boolean,
+  doesSupportAndroid?: boolean,
+  doesSupportIos?: boolean
+): Promise<boolean> {
+  return await invoke("add_world_cache", {
+    uuid,
+    description: description ?? null,
+    title: title ?? null,
+    visits: visits ?? null,
+    favorites: favorites ?? null,
+    capacity: capacity ?? null,
+    publishedAt: publishedAt ?? null,
+    doesSupportWindows: doesSupportWindows ?? null,
+    doesSupportAndroid: doesSupportAndroid ?? null,
+    doesSupportIos: doesSupportIos ?? null
+  });
 }
 
-export async function changeTag(tagid: number, data: Tag): Promise<void> {
-  await invoke("change_tag", {tagid, data});
+export async function upsertPublisher(uuid: string, name: string | null): Promise<boolean> {
+  return await invoke("upsert_publisher", { uuid, name });
 }
 
-export async function deleteTag(tagid: number): Promise<void> {
-  await invoke("delete_tag", {tagid});
+export async function createTag(name: string): Promise<Tag | null> {
+  return await invoke("create_tag", { name });
 }
 
-export function createTagGroup(name: string): Promise<TagGroup | null> {
-  return invoke("create_tag_group", {name}) as Promise<TagGroup | null>;
+export async function get_tags(): Promise<Tag[] | null> {
+  return await invoke("get_tags");
 }
 
-export function getTagGroups(): Promise<TagGroup[] | null> {
-  return invoke("get_tag_groups", {}) as Promise<TagGroup[] | null>
+export async function get_tags_with_children(): Promise<[Tag, number[]][] | null> {
+  return await invoke("get_tags_with_children");
 }
 
-export function editTaggroupName(taggroupid: number, name: string): Promise<boolean> {
-  return invoke("edit_tag_group_name", { taggroupid, name }) as Promise<boolean>
+export async function get_favorited_worlds(): Promise<number[] | null> {
+  return await invoke("get_favorited_worlds");
 }
 
-export function deleteTagGroup(taggroupid: number): Promise<boolean> {
-  return invoke("delete_tag_group", { taggroupid }) as Promise<boolean>
+export async function attach_world(tagid: number, worldid: number): Promise<boolean> {
+  return await invoke("attach_world", { tagid, worldid });
 }
 
-export function upsertTagGroupAttachment(tagid: number, taggroupid: number | null): Promise<boolean> {
-  return invoke("upsert_tag_group_attachment", { tagid, taggroupid }) as Promise<boolean>
+export async function detach_world(tagid: number, worldid: number): Promise<boolean> {
+  return await invoke("detach_world", { tagid, worldid });
+}
+
+export async function change_tag(tagid: number, name: string): Promise<boolean> {
+  return await invoke("change_tag", { tagid, data: { id: tagid, name } as Tag });
+}
+
+export async function delete_tag(tagid: number): Promise<boolean> {
+  return await invoke("delete_tag", { tagid });
+}
+
+export async function create_tag_group(name: string): Promise<TagGroup | null> {
+  return await invoke("create_tag_group", { name });
+}
+
+export async function get_tag_groups(): Promise<TagGroup[] | null> {
+  return await invoke("get_tag_groups");
+}
+
+export async function get_tag_groups_with_tags(): Promise<[TagGroup, number[]][] | null> {
+  return await invoke("get_tag_groups_with_tags");
+}
+
+export async function edit_tag_group_name(taggroupid: number, name: string): Promise<boolean> {
+  return await invoke("edit_tag_group_name", { taggroupid, name });
+}
+
+export async function delete_tag_group(taggroupid: number): Promise<boolean> {
+  return await invoke("delete_tag_group", { taggroupid });
+}
+
+export async function upsert_tag_group_attachment(tagid: number, taggroupid: number | null): Promise<boolean> {
+  return await invoke("upsert_tag_group_attachment", { tagid, taggroupid });
 }

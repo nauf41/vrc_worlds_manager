@@ -1,22 +1,7 @@
 use serde::{Deserialize, Serialize};
-
 use crate::db::get_pool;
 
-pub async fn get_tags() -> Result<Vec<Tag>, sqlx::Error> {
-  sqlx::query_as!(
-    Tag,
-    "
-    SELECT
-      id,
-      name
-    FROM tags
-    ORDER BY name ASC
-    ;
-    ",
-  ).fetch_all(get_pool().await).await
-}
-
-pub async fn create_tag(name: String) -> Result<Tag, sqlx::Error> {
+pub async fn create(name: String) -> Result<Tag, sqlx::Error> {
   sqlx::query_as!(
     Tag,
     "
@@ -29,20 +14,113 @@ pub async fn create_tag(name: String) -> Result<Tag, sqlx::Error> {
   ).fetch_one(get_pool().await).await
 }
 
-pub async fn delete_tag(tag_id: i64) -> Result<bool, sqlx::Error> {
-  let res = sqlx::query!(
+pub async fn get() -> Result<Vec<Tag>, sqlx::Error> {
+  sqlx::query_as!(
+    Tag,
     "
-    DELETE FROM tags
-    WHERE id = $1
+    SELECT
+      id,
+      name
+    FROM tags
+    WHERE id != 0
+    ORDER BY name ASC
     ;
     ",
-    tag_id
-  ).execute(get_pool().await).await?;
-
-  Ok(res.rows_affected() > 0)
+  ).fetch_all(get_pool().await).await
 }
 
-pub async fn change(tag_id: i64, after: Tag) -> Result<(), sqlx::Error> {
+pub async fn get_with_children() -> Result<Vec<(Tag, Vec<i64>)>, sqlx::Error> {
+  let tags = sqlx::query_as!(
+    TagWithChild,
+    "
+    SELECT
+      tg.id AS tag_id,
+      tg.name AS tag_name,
+      tw.worlds_id AS world_id
+    FROM tags tg
+    LEFT JOIN tags_worlds tw ON tg.id = tw.tags_id
+    ORDER BY tg.id ASC
+    ;
+    "
+  ).fetch_all(get_pool().await).await?;
+
+  let mut res: Vec<(Tag, Vec<i64>)> = vec![];
+
+  for tag in tags {
+    if let Some(v) = res.last_mut() {
+      if v.0.id == tag.tag_id {
+        if let Some(vv) = tag.world_id {
+          v.1.push(vv);
+        }
+      }
+      continue;
+    }
+
+    res.push((
+      Tag {
+        id: tag.tag_id,
+        name: tag.tag_name
+      },
+      if let Some(v) = tag.world_id {
+        vec![v]
+      } else {
+        vec![]
+      }
+    ));
+  }
+
+  Ok(res)
+}
+
+pub async fn get_favorited_worlds() -> Result<Vec<i64>, sqlx::Error> {
+  let res = sqlx::query_as!(
+    WorldsIdOnly,
+    "
+    SELECT
+      worlds_id
+    FROM tags_worlds
+    WHERE tags_id = 0
+    ;
+    "
+  ).fetch_all(get_pool().await).await?;
+
+  Ok(res.into_iter().map(|v| v.worlds_id).collect())
+}
+
+struct WorldsIdOnly {
+  pub worlds_id: i64
+}
+
+pub async fn attach(tag_id: i64, world_id: i64) -> Result<(), sqlx::Error> {
+  sqlx::query!(
+    "
+    INSERT INTO tags_worlds (tags_id, worlds_id)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING
+    ;
+    ",
+    tag_id,
+    world_id
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
+pub async fn detach(tag_id: i64, world_id: i64) -> Result<(), sqlx::Error> {
+  sqlx::query!(
+    "
+    DELETE FROM tags_worlds
+    WHERE tags_id = $1 AND worlds_id = $2
+    ;
+    ",
+    tag_id,
+    world_id
+  ).execute(get_pool().await).await?;
+
+  Ok(())
+}
+
+pub async fn update(tag_id: i64, after: Tag) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "
     UPDATE tags
@@ -57,74 +135,26 @@ pub async fn change(tag_id: i64, after: Tag) -> Result<(), sqlx::Error> {
   Ok(())
 }
 
-pub async fn create_tag_group(name: String) -> Result<sql_return_structs::TagGroup, sqlx::Error> {
-  sqlx::query_as!(
-    sql_return_structs::TagGroup,
-    "
-    INSERT INTO tag_groups (name) VALUES ($1) RETURNING id, name;", name
-  ).fetch_one(get_pool().await).await
-}
-
-pub async fn get_tag_groups() -> Result<Vec<sql_return_structs::TagGroup>, sqlx::Error> {
-  // sqlx::query_as!(
-  //   sql_return_structs::TagGroup,
-  //   "
-  //   SELECT id, name
-  //   FROM tag_groups
-  //   ORDER BY name ASC
-  //   ;
-  //   "
-  // ).fetch_all(get_pool().await).await
-
-  Ok(vec![])
-}
-
-pub async fn edit_tag_group_name(tag_group_id: i64, name: String) -> Result<(), sqlx::Error> {
+pub async fn delete(tag_id: i64) -> Result<bool, sqlx::Error> {
   sqlx::query!(
     "
-    UPDATE tag_groups
-    SET name = $1
-    WHERE id = $2
+    DELETE FROM tags_worlds
+    WHERE tags_id = $1
     ;
     ",
-    name, tag_group_id
+    tag_id
   ).execute(get_pool().await).await?;
 
-  Ok(())
-}
-
-pub async fn delete_tag_group(tag_group_id: i64) -> Result<bool, sqlx::Error> {
-  sqlx::query!(
+  let res = sqlx::query!(
     "
-    DELETE FROM tag_groups
+    DELETE FROM tags
     WHERE id = $1
     ;
     ",
-    tag_group_id
+    tag_id
   ).execute(get_pool().await).await?;
-  Ok(true)
-}
 
-pub async fn upsert_tag_group_attachment(tag_id: i64, tag_group_id: Option<i64>) -> Result<(), sqlx::Error> {
-  if tag_group_id.is_none() {
-    sqlx::query!(
-      "
-      DELETE FROM tag_groups_tags
-      WHERE tags_id = $1;
-      ",
-      tag_id
-    ).execute(get_pool().await).await?;
-  } else {
-    sqlx::query!(
-      "
-      INSERT INTO tag_groups_tags (tag_groups_id, tags_id) VALUES ($1, $2)
-      ON CONFLICT (tags_id) DO UPDATE SET tag_groups_id = $1;",
-      tag_group_id,
-      tag_id
-    ).execute(get_pool().await).await?;
-  }
-
-  Ok(())
+  Ok(res.rows_affected() > 0)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -133,12 +163,8 @@ pub struct Tag {
   pub name: String,
 }
 
-pub mod sql_return_structs {
-  use super::*;
-
-  #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-  pub struct TagGroup {
-    pub id: i64,
-    pub name: String,
-  }
+struct TagWithChild {
+  pub tag_id: i64,
+  pub tag_name: String,
+  pub world_id: Option<i64>,
 }

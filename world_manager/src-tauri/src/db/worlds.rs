@@ -2,16 +2,12 @@ use serde::{Deserialize, Serialize};
 
 use super::get_pool;
 
-fn f64o_to_i64o(f: &Option<f64>) -> Option<i64> {
-  f.map(|v| v as i64)
-}
-
 fn boolo_to_i64o(b: &Option<bool>) -> Option<i64> {
   b.map(|v| if v { 1 } else { 0 })
 }
 
 /// just add worlds to the DB, not register
-pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> Result<(), sqlx::Error> {
+pub async fn add_new_world(uuid: &str, publisher: Option<i64>) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "INSERT INTO worlds (uuid, publisher) VALUES (
       ?,
@@ -26,10 +22,6 @@ pub async fn add_new_world(uuid: &str, publisher: Option<i32>) -> Result<(), sql
 
 pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache: &crate::ipc::native_messaging::WorldCache) -> Result<(), sqlx::Error> {
   let now = chrono::Utc::now().timestamp_millis();
-  let visits = f64o_to_i64o(&cache.visits);
-  let favorites = f64o_to_i64o(&cache.favorites);
-  let capacity = f64o_to_i64o(&cache.capacity);
-  let published_at = f64o_to_i64o(&cache.published_at);
   let does_support_windows = boolo_to_i64o(&cache.does_support_windows);
   let does_support_android = boolo_to_i64o(&cache.does_support_android);
   let does_support_ios = boolo_to_i64o(&cache.does_support_ios);
@@ -63,10 +55,10 @@ pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache:
     now,
     cache.description,
     cache.title,
-    visits,
-    favorites,
-    capacity,
-    published_at,
+    cache.visits,
+    cache.favorites,
+    cache.capacity,
+    cache.published_at,
     does_support_windows,
     does_support_android,
     does_support_ios
@@ -87,27 +79,29 @@ pub async fn add_new_world_if_not_exists(uuid: &str) -> Result<(), sqlx::Error> 
   Ok(())
 }
 
-pub async fn add_new_publisher(uuid: &str, name: &Option<String>) -> Result<i64, sqlx::Error> {
+pub async fn upsert_publisher(uuid: &str, name: &Option<String>) -> Result<(), sqlx::Error> {
   sqlx::query!(
-    "INSERT OR IGNORE INTO users (uuid) VALUES (?);",
+    "INSERT OR IGNORE INTO users (uuid) VALUES (?) RETURNING id;",
     uuid
   ).execute(get_pool().await).await?;
 
-  let user_id: i64 = sqlx::query_scalar!(
-    "SELECT id FROM users WHERE uuid = ?;",
-    uuid
-  ).fetch_one(get_pool().await).await?;
+  let user_id = data.id;
 
-  sqlx::query!(
-    "INSERT INTO users_cache (user_id, name) VALUES (
-      ?,
-      ?
-    );",
-    user_id,
-    name
-  ).execute(get_pool().await).await?;
+  if name.is_some() {
+    let now = chrono::Utc::now().timestamp_millis();
+    sqlx::query!(
+      "INSERT INTO users_cache (user_id, cached_at, name) VALUES (
+        ?,
+        ?,
+        ?
+      );",
+      user_id,
+      now,
+      name
+    ).execute(get_pool().await).await?;
+  }
 
-  Ok(user_id)
+  Ok(())
 }
 
 pub async fn does_world_exist(uuid: &str) -> Result<bool, sqlx::Error> {
@@ -130,7 +124,7 @@ pub async fn get_world_id_by_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error
   }
 }
 
-pub async fn get_worlds(filter: &WorldQueryFilters, sort_by: &SortBy) -> Result<Vec<World>, sqlx::Error> {
+pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result<Vec<World>, sqlx::Error> {
   let res: Vec<sql_return_types::World> = sqlx::query_as!(
     sql_return_types::World,
     "
@@ -314,10 +308,5 @@ mod sql_return_types {
     pub does_support_android: Option<i64>, // is stored as i64 but actually bool
     pub does_support_ios: Option<i64>, // is stored as i64 but actually bool
     pub self_visits: Option<i64>,
-  }
-
-  #[derive(sqlx::FromRow)]
-  pub struct Id {
-    pub id: Option<i64>,
   }
 }
