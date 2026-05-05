@@ -95,3 +95,7 @@ export async function delete_tag_group(taggroupid: number): Promise<boolean> {
 export async function upsert_tag_group_attachment(tagid: number, taggroupid: number | null): Promise<boolean> {
   return await invoke("upsert_tag_group_attachment", { tagid, taggroupid });
 }
+
+export async function get_tags_without_taggroup(): Promise<Tag[] | null> {
+  return await invoke("get_tags_without_tagggroup");
+}

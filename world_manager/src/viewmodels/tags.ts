@@ -1,34 +1,57 @@
-import { create } from "zustand"
-import { changeTag, deleteTag, getTags } from "../models/db"
-import { listen } from "@tauri-apps/api/event";
-import type { Tag } from "../types/tags";
+import { change_tag, create_tag_group, createTag, delete_tag, delete_tag_group, edit_tag_group_name, get_tag_groups_with_tags, get_tags, get_tags_without_taggroup } from "@/models/db";
+import { Tag, TagGroup } from "@/types/tags";
+import { create } from "zustand";
 
-interface TagsState {
+export interface TagState {
   tags: Tag[],
-  update: () => Promise<void>,
-  remove: (tag_id: number) => Promise<void>,
-  change: (tag_id: number, after: Tag) => Promise<void>,
+  tags_without_taggroups: Tag[],
+  taggroups: [TagGroup, number[]][],
+  addTag: (name: string) => Promise<void>,
+  addTagGroup: (name: string) => Promise<void>,
+  changeTagName: (tagid: number, name: string) => Promise<void>,
+  changeTagGroupName: (taggroupid: number, name: string) => Promise<void>,
+  removeTag: (tagid: number) => Promise<void>,
+  removeTagGroup: (taggroupid: number) => Promise<void>,
+  update: () => Promise<void>
 }
 
-export const useTagsStore = create<TagsState>((set) => ({
+export const useTagStore = create<TagState>((set) => ({
   tags: [],
-  update: async() => set({tags: await getTags()}),
-  remove: async(tag_id: number) => {await deleteTag(tag_id); await useTagsStore.getState().update()},
-  change: async(tag_id: number, after: Tag) => {await changeTag(tag_id, after); await useTagsStore.getState().update()},
-}))
+  tags_without_taggroups: [],
+  taggroups: [],
+  update: async () => {
+    const tags = (await get_tags()) ?? [];
+    const tags_without_taggroups = (await get_tags_without_taggroup()) ?? [];
+    const taggroups = (await get_tag_groups_with_tags()) ?? [];
 
-listen('new-world', () => {
-  useTagsStore.getState().update();
-})
+    set({tags, tags_without_taggroups, taggroups});
+  },
+  addTag: async (name) => {
+    await createTag(name);
+    await useTagStore.getState().update();
+  },
+  addTagGroup: async (name) => {
+    await create_tag_group(name);
+    await useTagStore.getState().update();
+  },
+  changeTagName: async (tagid, name) => {
+    await change_tag(tagid, name);
+    await useTagStore.getState().update();
+  },
+  changeTagGroupName: async (taggroupid, name) => {
+    await edit_tag_group_name(taggroupid, name);
+    await useTagStore.getState().update();
+  },
+  removeTag: async (tagid) => {
+    await delete_tag(tagid);
+    await useTagStore.getState().update();
+  },
+  removeTagGroup: async (taggroupid) => {
+    await delete_tag_group(taggroupid);
+    await useTagStore.getState().update();
+  },
+}));
 
-listen('favorite-status-updated', () => {
-  useTagsStore.getState().update();
-})
-
-listen('world-cache-updated', () => {
-  useTagsStore.getState().update();
-})
-
-listen('registered-status-updated', () => {
-  useTagsStore.getState().update();
-})
+export function init() {
+  useTagStore.getState().update();
+}

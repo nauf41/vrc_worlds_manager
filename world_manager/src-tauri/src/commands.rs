@@ -62,6 +62,11 @@ pub async fn get_tags_with_children() -> Option<Vec<(tags::Tag, Vec<i64>)>> {
 }
 
 #[tauri::command]
+pub async fn get_tags_without_tagggroup() -> Option<Vec<tags::Tag>> {
+  tags::get_without_taggroup().await.ok()
+}
+
+#[tauri::command]
 pub async fn get_favorited_worlds() -> Option<Vec<i64>> {
   tags::get_favorited_worlds().await.ok()
 }
@@ -83,7 +88,8 @@ pub async fn change_tag(tagid: i64, data: tags::Tag) -> bool {
 
 #[tauri::command]
 pub async fn delete_tag(tagid: i64) -> bool {
-  tags::delete(tagid).await.ok().unwrap_or(false)
+  log::debug!("Deleting tag with id: {}", tagid);
+  tags::delete(tagid).await.unwrap_or(false)
 }
 
 // === Tag Groups ===

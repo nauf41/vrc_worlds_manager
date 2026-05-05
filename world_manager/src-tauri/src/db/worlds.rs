@@ -81,13 +81,17 @@ pub async fn add_new_world_if_not_exists(uuid: &str) -> Result<(), sqlx::Error> 
 
 pub async fn upsert_publisher(uuid: &str, name: &Option<String>) -> Result<(), sqlx::Error> {
   sqlx::query!(
-    "INSERT OR IGNORE INTO users (uuid) VALUES (?) RETURNING id;",
+    "INSERT OR IGNORE INTO users (uuid) VALUES (?);",
     uuid
   ).execute(get_pool().await).await?;
 
-  let user_id = data.id;
-
   if name.is_some() {
+    let user_id_res = sqlx::query_scalar!(
+      "SELECT id FROM users WHERE uuid = ?;",
+      uuid
+    ).fetch_one(get_pool().await).await?;
+
+    let user_id = user_id_res;
     let now = chrono::Utc::now().timestamp_millis();
     sqlx::query!(
       "INSERT INTO users_cache (user_id, cached_at, name) VALUES (

@@ -17,7 +17,7 @@ pub fn run() {
                 rec.args(),
             )
         })
-        .filter(None, log::LevelFilter::Info)
+        .filter(None, log::LevelFilter::Debug)
         .target(env_logger::Target::Stderr)
         .init();
 
@@ -43,6 +43,7 @@ pub fn run() {
             commands::attach_world,
             commands::detach_world,
             commands::upsert_publisher,
+            commands::get_tags_without_tagggroup,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
