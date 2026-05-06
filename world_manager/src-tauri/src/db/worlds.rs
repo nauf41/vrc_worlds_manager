@@ -103,7 +103,7 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
           worlds.does_support_ios AS does_support_ios,
           worlds.latest_at AS latest_at,
           worlds.image_cache_file AS image_cache_file,
-          ac.cnt AS self_visits
+          COALESCE(ac.cnt, 0) AS self_visits
         FROM worlds
         LEFT JOIN (
           SELECT world_id, COUNT(*) AS cnt
@@ -137,7 +137,7 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
           worlds.does_support_ios AS does_support_ios,
           worlds.latest_at AS latest_at,
           worlds.image_cache_file AS image_cache_file,
-          ac.cnt AS self_visits
+          COALESCE(ac.cnt, 0) AS self_visits
         FROM worlds
         LEFT JOIN (
           SELECT world_id, COUNT(*) AS cnt
@@ -166,37 +166,16 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
         World,
         "
         SELECT
-          worlds.id AS id,
-          worlds.uuid AS uuid,
-          worlds.publisher_uuid AS publisher_uuid,
-          worlds.publisher_name AS publisher_name,
-          worlds.registered_at AS registered_at,
-          worlds.description AS description,
-          worlds.title AS title,
-          worlds.visits AS visits,
-          worlds.favorites AS favorites,
-          worlds.capacity AS capacity,
-          worlds.published_at AS published_at,
-          worlds.does_support_windows AS does_support_windows,
-          worlds.does_support_android AS does_support_android,
-          worlds.does_support_ios AS does_support_ios,
-          worlds.latest_at AS latest_at,
-          worlds.image_cache_file AS image_cache_file,
-          ac.cnt AS self_visits
-        FROM worlds
-        LEFT JOIN (
-          SELECT world_id, COUNT(*) AS cnt
-          FROM activities
-          GROUP BY world_id
-        ) ac
-          ON worlds.id = ac.world_id
-        LEFT JOIN tags_worlds
-          ON worlds.id = tags_worlds.worlds_id
+          w.*,
+          (SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id) AS self_visits
+        FROM worlds w
+        INNER JOIN tags_worlds tw
+          ON w.id = tw.worlds_id
 
         WHERE
-          tags_worlds.tags_id = ?
+          tw.tags_id = $1
 
-        ORDER BY worlds.latest_at DESC
+        ORDER BY w.latest_at DESC
         ;
         ",
         id
@@ -229,7 +208,7 @@ pub enum SortBy {
   Recency,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
 pub struct World {
   pub id: i64,
   pub uuid: String,
@@ -247,7 +226,7 @@ pub struct World {
   pub does_support_ios: Option<i64>,
   pub latest_at: Option<i64>,
   pub image_cache_file: Option<String>,
-  pub self_visits: Option<i64>,
+  pub self_visits: i64,
 }
 
 
