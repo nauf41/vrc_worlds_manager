@@ -1,5 +1,5 @@
 import { SideBar } from "./SideBar";
-import { Worlds } from "./Worlds";
+import { Worlds, WorldTable } from "./Worlds";
 import { useAppStore } from "../viewmodels/app";
 import { Settings } from "./Settings";
 import { TagCreate, TagEdit } from "./Tag";
@@ -11,10 +11,10 @@ function App() {
   const tagState = useTagStore();
 
   return (
-    <main className="flex flex-col bg-background text-foreground h-screen">
-      <div className="grid grid-cols-12 flex-1">
+    <main className="flex flex-col bg-background text-foreground overflow-hidden h-screen">
+      <div className="grid grid-cols-12 flex-1 min-h-0">
         <SideBar state={appState} />
-        <div className="col-span-8 p-3">
+        <div className="col-span-8 min-h-0 overflow-hidden p-2">
           { appState.now.type === "settings" && (
             <Settings />
           )}
@@ -31,7 +31,7 @@ function App() {
             <TagGroupEdit appState={appState} tagState={tagState} taggroup={appState.now.taggroup} />
           ) }
           { (appState.now.type === "non-tagged" || appState.now.type === "all-favorited" || appState.now.type === "tagged" || appState.now.type === "all") && (
-            <Worlds />
+            appState.display === "list" ? <WorldTable /> : <Worlds />
           )}
         </div>
       </div>

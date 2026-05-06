@@ -76,7 +76,7 @@ pub async fn process_and_gen_response(app: &AppHandle, msg: native_messaging::Me
   match msg.body {
     MessageBody::FavoriteStatus(dat) => {
       let uuid = dat.uuid;
-      let is_favorite = crate::db::worlds::does_world_exist(&uuid).await?;
+      let is_favorite = crate::db::worlds::does_tag_contain_world(0, crate::db::worlds::get_id_from_uuid(&uuid).await?.unwrap_or(-1)).await?;
 
       app.emit("favorite-status-updated", ()).unwrap();
 
@@ -102,7 +102,10 @@ pub async fn process_and_gen_response(app: &AppHandle, msg: native_messaging::Me
 
     MessageBody::SetRegistered(req) => {
       let world_id = crate::db::worlds::get_id_from_uuid(&req.world).await?;
-      if let Some(world_id) = world_id {
+      log::info!("Setting registered status for world {} to {}, id: {:?}", req.world, req.is_registered, world_id);
+
+
+      let res = if let Some(world_id) = world_id {
         crate::db::tags::attach(0, world_id).await?; // tag[0] indicates "registered"
         app.emit("registered-status-updated", ()).unwrap();
         Ok(Response {
@@ -111,7 +114,11 @@ pub async fn process_and_gen_response(app: &AppHandle, msg: native_messaging::Me
         })
       } else {
         Err(anyhow::anyhow!("World not found"))
-      }
+      };
+
+      app.emit("registered-status-updated", ()).unwrap();
+
+      res
     }
   }
 }

@@ -1,4 +1,4 @@
-import { checkFavoriteStatus, updateCache } from "./background";
+import { checkFavoriteStatus, setRegistered, updateCache } from "./background";
 
 export function main() {
   console.log("processing launch...");
@@ -19,6 +19,7 @@ export function main() {
         } else {
           const elem = document.createElement("button"); // as HTMLButtonElement;
           elem.textContent = "Add to NFavorites";
+          elem.addEventListener('click', async () => await setRegistered(true, {uuid: uuid!}))
           target.appendChild(elem);
         }
       }
@@ -51,7 +52,7 @@ export function main() {
           does_support_android: android ? 1 : 0,
           does_support_ios: ios ? 1 : 0,
           latest_at: new Date().getTime(),
-          image_url: (document.querySelector("div.css-13l6lm7.e1mfpqtc1") as HTMLDivElement)?.style?.backgroundImage ?? "",
+          image_url: (document.querySelector(`meta[name="og:image"]`) as HTMLMetaElement)?.content ?? "",
         }
       );
     } catch (e) {

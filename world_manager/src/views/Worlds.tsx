@@ -11,8 +11,12 @@ import {
 } from "@/components/ui/card"
 import { Field } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { attach_world } from "@/models/db";
 
 import type { World as TWorld } from "@/types/world";
+import { useAppStore } from "@/viewmodels/app";
+import { useTagStore } from "@/viewmodels/tags";
 import { useWorldStore } from "@/viewmodels/world";
 import { BookmarkPlus, Footprints, Plus, UserCheck } from "lucide-react";
 
@@ -22,13 +26,55 @@ export function Worlds() {
   return (
     <ScrollArea className="block h-screen w-full">
       <div className="grid grid-cols-12 h-full w-full gap-2">
-        { worlds.now.map(world => ( <World world={world} /> )) }
+        { worlds.now.map(world => ( <World key={world.id} world={world} /> )) }
       </div>
     </ScrollArea>
   )
 }
 
+export function WorldTable() {
+  const tagStore = useTagStore();
+  const worldStore = useWorldStore();
+
+  return (
+    <div className="h-full w-full mb-3">
+      <ScrollArea className="h-full w-full max-h-screen">
+        <Table className="table-fixed w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead className="w-[50px] min-w-[50px] max-w-[50px]"><UserCheck className="inline" size="1.1em" /></TableHead>
+              <TableHead className="w-[50px] min-w-[50px] max-w-[50px]"><Footprints className="inline" size="1.1em" /></TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+          { worldStore.now.map(world => (
+            <TableRow key={world.id} className="w-full">
+              <TableCell className="w-full truncate">{world.title}</TableCell>
+              <TableCell className="w-[50px] min-w-[50px] max-w-[50px]">{world.capacity}</TableCell>
+              <TableCell className="w-[50px] min-w-[50px] max-w-[50px]">{world.self_visits}</TableCell>
+              <TableCell>
+                <div className="flex flex-row gap-1">
+                  { !tagStore.tags.find(v => v[0].id === 0)![1].includes(world.id) && (
+                    <Button className="p-2" onClick={async () => {await attach_world(0, world.id); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
+                  )}
+                  <Button className="p-2"><BookmarkPlus className="w-full h-full" /></Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+    </div>
+  )
+}
+
 export function World(props: {world: TWorld}) {
+  const tagStore = useTagStore();
+  const worldStore = useWorldStore();
+
   return (
     <div className="col-span-4">
       <Card className="relative mx-auto pt-0 h-full flex flex-col">
@@ -52,7 +98,9 @@ export function World(props: {world: TWorld}) {
         </CardContent>
         <CardFooter>
           <div className="flex flex-row w-full gap-1">
-            <Button className="p-2"><Plus className="w-full h-full" /></Button>
+            { !tagStore.tags.find(v => v[0].id === 0)![1].includes(props.world.id) && (
+              <Button className="p-2" onClick={async () => {await attach_world(0, props.world.id); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
+            )}
             <Button className="p-2"><BookmarkPlus className="w-full h-full" /></Button>
           </div>
         </CardFooter>

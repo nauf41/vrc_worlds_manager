@@ -84,7 +84,6 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
           does_support_android: None,
           does_support_ios: None,
           latest_at: Some(session.ended_at.timestamp_millis()),
-          image_cache: None,
           registered_at: None,
         }).await?.id;
 
