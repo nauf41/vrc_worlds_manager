@@ -50,6 +50,5 @@ export namespace NativeMessaging {
     does_support_android?: number;
     does_support_ios?: number;
     latest_at?: number;
-    image_cache?: string; // base64-encoded
   }
 }

@@ -22,7 +22,6 @@ pub async fn get() -> Result<Vec<Tag>, sqlx::Error> {
       id,
       name
     FROM tags
-    WHERE id != 0
     ORDER BY name ASC
     ;
     ",
@@ -113,8 +112,8 @@ struct WorldsIdOnly {
 pub async fn attach(tag_id: i64, world_id: i64) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "
-    INSERT INTO tags_worlds (tags_id, worlds_id)
-    VALUES ($1, $2)
+    INSERT INTO tags_worlds (tags_id, worlds_id, is_sent_to_discord)
+    VALUES ($1, $2, 0)
     ON CONFLICT DO NOTHING
     ;
     ",

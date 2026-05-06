@@ -19,17 +19,11 @@ chrome.runtime.onMessage.addListener(async(message: Messaging.Message, sender, s
     case "update-cache": {
       const {world} = message.body;
 
-      const image = await (await fetch(world.image_url, {cache: 'force-cache'})).blob();
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const result = await updateCache({...world, image_cache: reader.result?.toString()!});
-        sendResponse({
-          type: "update-cache",
-          body: result,
-        } as Messaging.Response);
-      }
-      reader.readAsDataURL(image);
-
+      const result = await updateCache({...world});
+      sendResponse({
+        type: "update-cache",
+        body: result,
+      } as Messaging.Response);
       break;
     }
     case "set-registered": {

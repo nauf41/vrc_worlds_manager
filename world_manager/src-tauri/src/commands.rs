@@ -39,7 +39,8 @@ pub async fn get_favorited_worlds() -> Option<Vec<i64>> {
 
 #[tauri::command]
 pub async fn attach_world(tagid: i64, worldid: i64) -> bool {
-  tags::attach(tagid, worldid).await.is_ok()
+  tags::attach(tagid, worldid).await.unwrap();
+  true
 }
 
 #[tauri::command]

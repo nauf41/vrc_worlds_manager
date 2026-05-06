@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { Now as AppNow, useAppStore } from "./app";
 import { getWorlds } from "@/models/db";
 import { listen } from "@tauri-apps/api/event";
+import { useTagStore } from "./tags";
 
 interface WorldState {
   now: World[],
@@ -36,11 +37,11 @@ export const useWorldStore = create<WorldState>((set) => ({
   }
 }));
 
-export function init() {
-  const update = () => useWorldStore.getState().updateWorld(useAppStore.getState().now);
-  listen("world-cache-updated", update);
-  listen("registered-status-updated", update);
-  listen("favorite-status-updated", update);
-  update();
+export async function init() {
+  const update = async () => {useTagStore.getState().update(); await useWorldStore.getState().updateWorld(useAppStore.getState().now).then(() => {console.log(useAppStore.getState(), useWorldStore.getState());})};
+  listen("world-cache-updated", () => setTimeout(update, 300));
+  listen("registered-status-updated", () => setTimeout(update, 300));
+  listen("favorite-status-updated", () => setTimeout(update, 300));
   useAppStore.subscribe(state => state.now, now => useWorldStore.getState().updateWorld(now));
+  await update();
 }

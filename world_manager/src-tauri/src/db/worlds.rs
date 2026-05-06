@@ -3,24 +3,11 @@ use serde::{Deserialize, Serialize};
 use super::get_pool;
 
 pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error> {
-  // store
-  let f = if let Some(data) = w.image_cache {
-    let img_uuid = uuid::Uuid::now_v7().to_string();
-    let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data).unwrap();
-    let info = infer::get(&data).unwrap();
-    let file_name = format!("{}.{}", img_uuid, info.extension());
-    let path = std::path::Path::new("./thumbnail-cache").join(&file_name);
-    std::fs::write(&path, data).unwrap();
-    Some(file_name)
-  } else {
-    None
-  };
-
   sqlx::query_as!(
     WorldDBStructure,
     "
-    INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, visits, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at, image_cache_file)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, visits, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT(uuid) DO UPDATE SET
       uuid = COALESCE(EXCLUDED.uuid, worlds.uuid),
       publisher_uuid = COALESCE(EXCLUDED.publisher_uuid, worlds.publisher_uuid),
@@ -35,9 +22,7 @@ pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error
       does_support_windows = COALESCE(EXCLUDED.does_support_windows, worlds.does_support_windows),
       does_support_android = COALESCE(EXCLUDED.does_support_android, worlds.does_support_android),
       does_support_ios = COALESCE(EXCLUDED.does_support_ios, worlds.does_support_ios),
-      latest_at = COALESCE(EXCLUDED.latest_at, worlds.latest_at),
-      image_cache_file = COALESCE(EXCLUDED.image_cache_file, worlds.image_cache_file)
-
+      latest_at = COALESCE(EXCLUDED.latest_at, worlds.latest_at)
       RETURNING *
     ;
     ",
@@ -55,7 +40,6 @@ pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error
     w.does_support_android,
     w.does_support_ios,
     w.latest_at,
-    f,
   ).fetch_one(get_pool().await).await
 }
 
@@ -75,6 +59,20 @@ pub async fn does_world_exist(uuid: &str) -> Result<bool, sqlx::Error> {
   Ok(len > 0)
 }
 
+pub async fn does_tag_contain_world(tagid: i64, worldid: i64) -> Result<bool, sqlx::Error> {
+  sqlx::query_scalar!(
+    "
+    SELECT EXISTS (
+      SELECT 1
+      FROM tags_worlds
+      WHERE tags_id = ? AND worlds_id = ?
+    );
+    ",
+    tagid,
+    worldid
+  ).fetch_one(get_pool().await).await.map(|cnt| cnt > 0)
+}
+
 // tag 0 is a magic number which shows that the world is favorite.
 // -1: 0 AND not another
 // null: any
@@ -85,89 +83,134 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
       // any
       sqlx::query_as!(
         World,
-        "
+        r#"
         SELECT
-          worlds.id AS id,
-          worlds.uuid AS uuid,
-          worlds.publisher_uuid AS publisher_uuid,
-          worlds.publisher_name AS publisher_name,
-          worlds.registered_at AS registered_at,
-          worlds.description AS description,
-          worlds.title AS title,
-          worlds.visits AS visits,
-          worlds.favorites AS favorites,
-          worlds.capacity AS capacity,
-          worlds.published_at AS published_at,
-          worlds.does_support_windows AS does_support_windows,
-          worlds.does_support_android AS does_support_android,
-          worlds.does_support_ios AS does_support_ios,
-          worlds.latest_at AS latest_at,
-          worlds.image_cache_file AS image_cache_file,
-          COALESCE(ac.cnt, 0) AS self_visits
-        FROM worlds
-        LEFT JOIN (
-          SELECT world_id, COUNT(*) AS cnt
-          FROM activities
-          GROUP BY world_id
-        ) ac
+          w.id AS "id!: i64",
+          w.uuid,
+          w.publisher_uuid,
+          w.publisher_name,
+          w.registered_at,
+          w.description,
+          w.title,
+          w.visits,
+          w.favorites,
+          w.capacity,
+          w.published_at,
+          w.does_support_windows,
+          w.does_support_android,
+          w.does_support_ios,
+          w.latest_at,
+          w.image_cache_file,
+          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+        FROM worlds w
 
-        ORDER BY worlds.latest_at DESC
+        ORDER BY w.latest_at DESC
       ;
-        ",
+        "#,
       ).fetch_all(get_pool().await).await
     }
     Some(-2) => {
       sqlx::query_as!(
         World,
-        "
+        r#"
         SELECT
-          worlds.id AS id,
-          worlds.uuid AS uuid,
-          worlds.publisher_uuid AS publisher_uuid,
-          worlds.publisher_name AS publisher_name,
-          worlds.registered_at AS registered_at,
-          worlds.description AS description,
-          worlds.title AS title,
-          worlds.visits AS visits,
-          worlds.favorites AS favorites,
-          worlds.capacity AS capacity,
-          worlds.published_at AS published_at,
-          worlds.does_support_windows AS does_support_windows,
-          worlds.does_support_android AS does_support_android,
-          worlds.does_support_ios AS does_support_ios,
-          worlds.latest_at AS latest_at,
-          worlds.image_cache_file AS image_cache_file,
-          COALESCE(ac.cnt, 0) AS self_visits
-        FROM worlds
+          w.id AS "id!: i64",
+          w.uuid,
+          w.publisher_uuid,
+          w.publisher_name,
+          w.registered_at,
+          w.description,
+          w.title,
+          w.visits,
+          w.favorites,
+          w.capacity,
+          w.published_at,
+          w.does_support_windows,
+          w.does_support_android,
+          w.does_support_ios,
+          w.latest_at,
+          w.image_cache_file,
+          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+        FROM worlds w
         LEFT JOIN (
           SELECT world_id, COUNT(*) AS cnt
           FROM activities
           GROUP BY world_id
         ) ac
-          ON worlds.id = ac.world_id
-        LEFT JOIN tags_worlds
-          ON worlds.id = tags_worlds.worlds_id
+          ON w.id = ac.world_id
+        LEFT JOIN tags_worlds tw
+          ON w.id = tw.worlds_id
 
         WHERE
-          tags_worlds.tags_id IS NULL
+          tw.tags_id IS NULL
 
-        ORDER BY worlds.latest_at DESC
+        ORDER BY w.latest_at DESC
       ;
-        "
+        "#
       ).fetch_all(get_pool().await).await
     }
     Some(-1) => {
-      Ok(vec![])
+      sqlx::query_as!(
+        World,
+        r#"
+        SELECT
+          w.id AS "id!: i64",
+          w.uuid,
+          w.publisher_uuid,
+          w.publisher_name,
+          w.registered_at,
+          w.description,
+          w.title,
+          w.visits,
+          w.favorites,
+          w.capacity,
+          w.published_at,
+          w.does_support_windows,
+          w.does_support_android,
+          w.does_support_ios,
+          w.latest_at,
+          w.image_cache_file,
+          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+        FROM worlds w
+        INNER JOIN tags_worlds tw
+          ON w.id = tw.worlds_id
+        WHERE tw.tags_id = 0
+          AND NOT EXISTS (
+            SELECT 1
+            FROM tags_worlds tw_other
+            WHERE tw_other.worlds_id = w.id
+              AND tw_other.tags_id != 0
+          )
+
+        ORDER BY w.latest_at DESC
+        ;
+        "#
+      ).fetch_all(get_pool().await).await
     }
     _ => {
       let id = filter.tag_id.unwrap();
 
       sqlx::query_as!(
         World,
-        "
+        r#"
         SELECT
-          w.*,
-          (SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id) AS self_visits
+          w.id AS "id!: i64",
+          w.uuid,
+          w.publisher_uuid,
+          w.publisher_name,
+          w.registered_at,
+          w.description,
+          w.title,
+          w.visits,
+          w.favorites,
+          w.capacity,
+          w.published_at,
+          w.does_support_windows,
+          w.does_support_android,
+          w.does_support_ios,
+          w.latest_at,
+          w.image_cache_file,
+          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
         FROM worlds w
         INNER JOIN tags_worlds tw
           ON w.id = tw.worlds_id
@@ -177,7 +220,7 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
 
         ORDER BY w.latest_at DESC
         ;
-        ",
+        "#,
         id
       ).fetch_all(get_pool().await).await
     }
@@ -246,7 +289,6 @@ pub struct WorldQuery {
   pub does_support_android: Option<i64>,
   pub does_support_ios: Option<i64>,
   pub latest_at: Option<i64>,
-  pub image_cache: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

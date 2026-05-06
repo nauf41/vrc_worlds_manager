@@ -26,7 +26,7 @@ export function SideBar(props: {state: AppState}) {
               <CommandItem style={props.state.now.type === "all" ? {backgroundColor: "var(--color-gray-600) !important"} : {}} onSelect={() => {props.state.change_type({type: "all"})}}><Badge variant="outline">Auto</Badge>Recently Visited</CommandItem>
               <CommandItem style={props.state.now.type === "non-tagged" ? {backgroundColor: "var(--color-gray-600) !important"} : {}} onSelect={() => {props.state.change_type({type: "non-tagged"})}}><Badge variant="outline">Auto</Badge>Unclassified</CommandItem>
               {
-                tags.tags_without_taggroups.map((item, index) => ((
+                tags.tags_without_taggroups.filter(t => t.id !== 0).map((item, index) => ((
                   <CommandItem key={index} className="p-2" onSelect={() => {props.state.change_type({type: "tagged", tag: item})}} style={props.state.now.type === "tagged" && props.state.now.tag.id === item.id ? {backgroundColor: "var(--color-gray-600) !important"} : {}}>
                     <span>{item.name}</span>
                     <span className="hidden">{item.id}</span>
@@ -52,12 +52,12 @@ export function SideBar(props: {state: AppState}) {
                 )
               }>
                 {
-                  children.map(v => tags.tags.find(vv => vv.id === v)!).map((item, index) => ((
-                    <CommandItem key={index} className="p-2" onSelect={() => {props.state.change_type({type: "tagged", tag: item})}} style={props.state.now.type === "tagged" && props.state.now.tag.id === item.id ? {backgroundColor: "var(--color-gray-600) !important"} : {}}>
-                      <span>{item.name}</span>
-                      <span className="hidden">{item.id}</span>
+                  children.map(v => tags.tags.find(vv => vv[0].id === v)!).map((item, index) => ((
+                    <CommandItem key={index} className="p-2" onSelect={() => {props.state.change_type({type: "tagged", tag: item[0]})}} style={props.state.now.type === "tagged" && props.state.now.tag.id === item[0].id ? {backgroundColor: "var(--color-gray-600) !important"} : {}}>
+                      <span>{item[0].name}</span>
+                      <span className="hidden">{item[0].id}</span>
                       <CommandShortcut>
-                        <Button size="icon" variant="ghost" className="h-4 w-4 opacity-0 transition-opacity group-hover/command-item:opacity-100" onClick={(e) => {props.state.change_type({type: "edit-tag", tag: item}); e.stopPropagation();}}>
+                        <Button size="icon" variant="ghost" className="h-4 w-4 opacity-0 transition-opacity group-hover/command-item:opacity-100" onClick={(e) => {props.state.change_type({type: "edit-tag", tag: item[0]}); e.stopPropagation();}}>
                           <MoreHorizontal className="h-3 w-3" />
                         </Button>
                       </CommandShortcut>
