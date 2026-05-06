@@ -1,13 +1,13 @@
 use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::env;
-use std::io::{BufRead, BufReader, Seek};
+use std::io::{BufReader, Seek};
 use regex::Regex;
 
 use chrono::{TimeZone, Utc};
 use tauri::{AppHandle, Emitter};
 
-use crate::ipc::native_messaging::{World, WorldCache};
+use crate::db::worlds::WorldQuery;
 
 pub async fn main(app: AppHandle) -> anyhow::Result<()> {
   log::debug!("Log watcher started");
@@ -69,13 +69,13 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
         if !crate::db::worlds::does_world_exist(&session.world_uuid).await? {
           updated = true;
         }
-        crate::db::worlds::add_new_world_if_not_exists(&session.world_uuid).await?;
-        let wrld_id = crate::db::worlds::get_world_id_by_uuid(&session.world_uuid).await?.ok_or(anyhow::anyhow!("UUID must be able to fetch"))?;
-        crate::db::worlds::add_world_cache(&World {
+
+        let id = crate::db::worlds::upsert_world(WorldQuery {
           uuid: session.world_uuid.clone(),
-        }, &WorldCache {
+          title: Some(session.world_name.clone()),
+          publisher_uuid: None,
+          publisher_name: None,
           description: None,
-          title: Some(session.world_name),
           visits: None,
           favorites: None,
           capacity: None,
@@ -83,10 +83,13 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
           does_support_windows: None,
           does_support_android: None,
           does_support_ios: None,
-        }).await?;
+          latest_at: Some(session.ended_at.timestamp_millis()),
+          image_cache: None,
+          registered_at: None,
+        }).await?.id;
 
         crate::db::worlds::new_session(
-          wrld_id,
+          id,
           session.started_at.timestamp_millis(),
           session.ended_at.timestamp_millis()
         ).await?;

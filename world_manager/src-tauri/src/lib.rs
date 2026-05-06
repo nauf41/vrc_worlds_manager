@@ -36,14 +36,12 @@ pub fn run() {
             commands::delete_tag_group,
             commands::upsert_tag_group_attachment,
             commands::get_tag_groups_with_tags,
-            commands::add_world,
-            commands::add_world_cache,
             commands::get_tags_with_children,
             commands::get_favorited_worlds,
             commands::attach_world,
             commands::detach_world,
-            commands::upsert_publisher,
-            commands::get_tags_without_tagggroup,
+            commands::get_tags_without_taggroup,
+            commands::upsert_world,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

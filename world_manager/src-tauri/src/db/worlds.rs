@@ -2,110 +2,69 @@ use serde::{Deserialize, Serialize};
 
 use super::get_pool;
 
-fn boolo_to_i64o(b: &Option<bool>) -> Option<i64> {
-  b.map(|v| if v { 1 } else { 0 })
+pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error> {
+  // store
+  let f = if let Some(data) = w.image_cache {
+    let img_uuid = uuid::Uuid::now_v7().to_string();
+    let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data).unwrap();
+    let info = infer::get(&data).unwrap();
+    let file_name = format!("{}.{}", img_uuid, info.extension());
+    let path = std::path::Path::new("./thumbnail-cache").join(&file_name);
+    std::fs::write(&path, data).unwrap();
+    Some(file_name)
+  } else {
+    None
+  };
+
+  sqlx::query_as!(
+    WorldDBStructure,
+    "
+    INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, visits, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at, image_cache_file)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    ON CONFLICT(uuid) DO UPDATE SET
+      uuid = COALESCE(EXCLUDED.uuid, worlds.uuid),
+      publisher_uuid = COALESCE(EXCLUDED.publisher_uuid, worlds.publisher_uuid),
+      publisher_name = COALESCE(EXCLUDED.publisher_name, worlds.publisher_name),
+      registered_at = COALESCE(EXCLUDED.registered_at, worlds.registered_at),
+      description = COALESCE(EXCLUDED.description, worlds.description),
+      title = COALESCE(EXCLUDED.title, worlds.title),
+      visits = COALESCE(EXCLUDED.visits, worlds.visits),
+      favorites = COALESCE(EXCLUDED.favorites, worlds.favorites),
+      capacity = COALESCE(EXCLUDED.capacity, worlds.capacity),
+      published_at = COALESCE(EXCLUDED.published_at, worlds.published_at),
+      does_support_windows = COALESCE(EXCLUDED.does_support_windows, worlds.does_support_windows),
+      does_support_android = COALESCE(EXCLUDED.does_support_android, worlds.does_support_android),
+      does_support_ios = COALESCE(EXCLUDED.does_support_ios, worlds.does_support_ios),
+      latest_at = COALESCE(EXCLUDED.latest_at, worlds.latest_at),
+      image_cache_file = COALESCE(EXCLUDED.image_cache_file, worlds.image_cache_file)
+
+      RETURNING *
+    ;
+    ",
+    w.uuid,
+    w.publisher_uuid,
+    w.publisher_name,
+    w.registered_at,
+    w.description,
+    w.title,
+    w.visits,
+    w.favorites,
+    w.capacity,
+    w.published_at,
+    w.does_support_windows,
+    w.does_support_android,
+    w.does_support_ios,
+    w.latest_at,
+    f,
+  ).fetch_one(get_pool().await).await
 }
 
-/// just add worlds to the DB, not register
-pub async fn add_new_world(uuid: &str, publisher: Option<i64>) -> Result<(), sqlx::Error> {
-  sqlx::query!(
-    "INSERT INTO worlds (uuid, publisher) VALUES (
-      ?,
-      ?
-    );",
-    uuid,
-    publisher
-  ).execute(get_pool().await).await?;
+pub async fn get_id_from_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error> {
+  let res = sqlx::query_scalar!("SELECT id FROM worlds WHERE uuid = ?;", uuid)
+    .fetch_optional(get_pool().await)
+    .await?;
 
-  Ok(())
-}
-
-pub async fn add_world_cache(world: &crate::ipc::native_messaging::World, cache: &crate::ipc::native_messaging::WorldCache) -> Result<(), sqlx::Error> {
-  let now = chrono::Utc::now().timestamp_millis();
-  let does_support_windows = boolo_to_i64o(&cache.does_support_windows);
-  let does_support_android = boolo_to_i64o(&cache.does_support_android);
-  let does_support_ios = boolo_to_i64o(&cache.does_support_ios);
-  sqlx::query!(
-    "INSERT INTO worlds_cache (
-      world_id,
-      cached_at,
-      description,
-      title,
-      visits,
-      favorites,
-      capacity,
-      published_at,
-      does_support_windows,
-      does_support_android,
-      does_support_ios
-    ) VALUES (
-      (SELECT id FROM worlds WHERE uuid = ?),
-      ?,
-      ?,
-      ?,
-      ?,
-      ?,
-      ?,
-      ?,
-      ?,
-      ?,
-      ?
-    );",
-    world.uuid,
-    now,
-    cache.description,
-    cache.title,
-    cache.visits,
-    cache.favorites,
-    cache.capacity,
-    cache.published_at,
-    does_support_windows,
-    does_support_android,
-    does_support_ios
-  ).execute(get_pool().await).await?;
-
-  Ok(())
-}
-
-/// just add worlds to the DB, not register
-pub async fn add_new_world_if_not_exists(uuid: &str) -> Result<(), sqlx::Error> {
-  sqlx::query!(
-    "INSERT OR IGNORE INTO worlds (uuid) VALUES (
-      ?
-    );",
-    uuid
-  ).execute(get_pool().await).await?;
-
-  Ok(())
-}
-
-pub async fn upsert_publisher(uuid: &str, name: &Option<String>) -> Result<(), sqlx::Error> {
-  sqlx::query!(
-    "INSERT OR IGNORE INTO users (uuid) VALUES (?);",
-    uuid
-  ).execute(get_pool().await).await?;
-
-  if name.is_some() {
-    let user_id_res = sqlx::query_scalar!(
-      "SELECT id FROM users WHERE uuid = ?;",
-      uuid
-    ).fetch_one(get_pool().await).await?;
-
-    let user_id = user_id_res;
-    let now = chrono::Utc::now().timestamp_millis();
-    sqlx::query!(
-      "INSERT INTO users_cache (user_id, cached_at, name) VALUES (
-        ?,
-        ?,
-        ?
-      );",
-      user_id,
-      now,
-      name
-    ).execute(get_pool().await).await?;
-  }
-
-  Ok(())
+  Ok(if let Some(Some(v)) = res { Some(v) } else { None })
 }
 
 pub async fn does_world_exist(uuid: &str) -> Result<bool, sqlx::Error> {
@@ -116,114 +75,134 @@ pub async fn does_world_exist(uuid: &str) -> Result<bool, sqlx::Error> {
   Ok(len > 0)
 }
 
-pub async fn get_world_id_by_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error> {
-  let id = sqlx::query_scalar!("SELECT id FROM worlds WHERE uuid = ?;", uuid)
-    .fetch_optional(get_pool().await)
-    .await?;
-
-  if let Some(Some(id)) = id {
-    Ok(Some(id))
-  } else {
-    Ok(None)
-  }
-}
-
+// tag 0 is a magic number which shows that the world is favorite.
+// -1: 0 AND not another
+// null: any
+// -2: not 0
 pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result<Vec<World>, sqlx::Error> {
-  let res: Vec<sql_return_types::World> = sqlx::query_as!(
-    sql_return_types::World,
-    "
-    SELECT
-      worlds.id AS id,
-      worlds.uuid AS uuid,
-      worlds.publisher AS publisher,
-      users_cache_1.name AS publisher_name,
-      worlds_cache_1.description AS description,
-      worlds_cache_1.title AS title,
-      worlds_cache_1.visits AS visits,
-      worlds_cache_1.favorites AS favorites,
-      worlds_cache_1.capacity AS capacity,
-      worlds_cache_1.published_at as published_at,
-      worlds_cache_1.does_support_windows as does_support_windows,
-      worlds_cache_1.does_support_android as does_support_android,
-      worlds_cache_1.does_support_ios as does_support_ios,
-      activities_1.self_visits as self_visits
-    FROM worlds
-    LEFT JOIN (
-        SELECT *,
-          ROW_NUMBER() OVER (PARTITION BY users_cache.user_id ORDER BY id DESC) AS rn
-        FROM users_cache
-      ) users_cache_1
-      ON worlds.publisher = users_cache_1.user_id
-      AND users_cache_1.rn = 1
+  match filter.tag_id {
+    None => {
+      // any
+      sqlx::query_as!(
+        World,
+        "
+        SELECT
+          worlds.id AS id,
+          worlds.uuid AS uuid,
+          worlds.publisher_uuid AS publisher_uuid,
+          worlds.publisher_name AS publisher_name,
+          worlds.registered_at AS registered_at,
+          worlds.description AS description,
+          worlds.title AS title,
+          worlds.visits AS visits,
+          worlds.favorites AS favorites,
+          worlds.capacity AS capacity,
+          worlds.published_at AS published_at,
+          worlds.does_support_windows AS does_support_windows,
+          worlds.does_support_android AS does_support_android,
+          worlds.does_support_ios AS does_support_ios,
+          worlds.latest_at AS latest_at,
+          worlds.image_cache_file AS image_cache_file,
+          ac.cnt AS self_visits
+        FROM worlds
+        LEFT JOIN (
+          SELECT world_id, COUNT(*) AS cnt
+          FROM activities
+          GROUP BY world_id
+        ) ac
 
-    LEFT JOIN (
-        SELECT *,
-          ROW_NUMBER() OVER (PARTITION BY worlds_cache.world_id ORDER BY id DESC) AS rn
-        FROM worlds_cache
-      ) worlds_cache_1
-      ON worlds.id = worlds_cache_1.world_id
-      AND worlds_cache_1.rn = 1
-
-    LEFT JOIN tags_worlds
-      ON worlds.id = tags_worlds.worlds_id
-
-    LEFT JOIN tags
-      ON tags_worlds.tags_id = tags.id
-
-    LEFT JOIN (
-      SELECT world_id, COUNT(*) AS self_visits
-      FROM activities
-      GROUP BY world_id
-    ) activities_1
-      ON worlds.id = activities_1.world_id
-
-    WHERE
-    ($1 IS NULL OR tags_worlds.tags_id = $1)
-    AND ($2 IS NULL OR (CASE WHEN $2 THEN worlds.registered_at IS NOT NULL ELSE worlds.registered_at IS NULL END))
-    AND ($3 IS NULL OR (CASE WHEN $3 THEN tags_worlds.tags_id IS NOT NULL ELSE tags_worlds.tags_id IS NULL END))
-
-    ORDER BY worlds.registered_at DESC
-    ;
-    ",
-    filter.tag_id,
-    filter.registered,
-    filter.classified,
-  ).fetch_all(get_pool().await).await?;
-
-  Ok(res.into_iter().map(|q: sql_return_types::World| {
-    World {
-      id: q.id,
-      uuid: q.uuid,
-      publisher: q.publisher,
-      publisher_name: q.publisher_name,
-      description: q.description,
-      title: q.title,
-      visits: q.visits,
-      favorites: q.favorites,
-      capacity: q.capacity,
-      published_at: q.published_at,
-      supports_windows: q.does_support_windows.map(|v| v != 0),
-      supports_android: q.does_support_android.map(|v| v != 0),
-      supports_ios: q.does_support_ios.map(|v| v != 0),
-      self_visits: q.self_visits,
+        ORDER BY worlds.latest_at DESC
+      ;
+        ",
+      ).fetch_all(get_pool().await).await
     }
-  }).collect())
-}
+    Some(-2) => {
+      sqlx::query_as!(
+        World,
+        "
+        SELECT
+          worlds.id AS id,
+          worlds.uuid AS uuid,
+          worlds.publisher_uuid AS publisher_uuid,
+          worlds.publisher_name AS publisher_name,
+          worlds.registered_at AS registered_at,
+          worlds.description AS description,
+          worlds.title AS title,
+          worlds.visits AS visits,
+          worlds.favorites AS favorites,
+          worlds.capacity AS capacity,
+          worlds.published_at AS published_at,
+          worlds.does_support_windows AS does_support_windows,
+          worlds.does_support_android AS does_support_android,
+          worlds.does_support_ios AS does_support_ios,
+          worlds.latest_at AS latest_at,
+          worlds.image_cache_file AS image_cache_file,
+          ac.cnt AS self_visits
+        FROM worlds
+        LEFT JOIN (
+          SELECT world_id, COUNT(*) AS cnt
+          FROM activities
+          GROUP BY world_id
+        ) ac
+          ON worlds.id = ac.world_id
+        LEFT JOIN tags_worlds
+          ON worlds.id = tags_worlds.worlds_id
 
-pub async fn update_registered(id: i64, is_registered: bool) -> Result<(), sqlx::Error> {
-  let registered_at = if is_registered {
-    Some(chrono::Utc::now().timestamp())
-  } else {
-    None
-  };
+        WHERE
+          tags_worlds.tags_id IS NULL
 
-  sqlx::query!(
-    "UPDATE worlds SET registered_at = ? WHERE id = ?;",
-    registered_at,
-    id
-  ).execute(get_pool().await).await?;
+        ORDER BY worlds.latest_at DESC
+      ;
+        "
+      ).fetch_all(get_pool().await).await
+    }
+    Some(-1) => {
+      Ok(vec![])
+    }
+    _ => {
+      let id = filter.tag_id.unwrap();
 
-  Ok(())
+      sqlx::query_as!(
+        World,
+        "
+        SELECT
+          worlds.id AS id,
+          worlds.uuid AS uuid,
+          worlds.publisher_uuid AS publisher_uuid,
+          worlds.publisher_name AS publisher_name,
+          worlds.registered_at AS registered_at,
+          worlds.description AS description,
+          worlds.title AS title,
+          worlds.visits AS visits,
+          worlds.favorites AS favorites,
+          worlds.capacity AS capacity,
+          worlds.published_at AS published_at,
+          worlds.does_support_windows AS does_support_windows,
+          worlds.does_support_android AS does_support_android,
+          worlds.does_support_ios AS does_support_ios,
+          worlds.latest_at AS latest_at,
+          worlds.image_cache_file AS image_cache_file,
+          ac.cnt AS self_visits
+        FROM worlds
+        LEFT JOIN (
+          SELECT world_id, COUNT(*) AS cnt
+          FROM activities
+          GROUP BY world_id
+        ) ac
+          ON worlds.id = ac.world_id
+        LEFT JOIN tags_worlds
+          ON worlds.id = tags_worlds.worlds_id
+
+        WHERE
+          tags_worlds.tags_id = ?
+
+        ORDER BY worlds.latest_at DESC
+        ;
+        ",
+        id
+      ).fetch_all(get_pool().await).await
+    }
+  }
 }
 
 pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> Result<(), sqlx::Error> {
@@ -243,8 +222,6 @@ pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> Resul
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct WorldQueryFilters {
   tag_id: Option<i64>,
-  registered: Option<bool>,
-  classified: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -254,63 +231,61 @@ pub enum SortBy {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct World {
-  id: i64,
-
-  uuid: String,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  publisher: Option<i64>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  publisher_name: Option<String>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  description: Option<String>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  title: Option<String>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  visits: Option<i64>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  favorites: Option<i64>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  capacity: Option<i64>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  published_at: Option<i64>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  supports_windows: Option<bool>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  supports_android: Option<bool>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  supports_ios: Option<bool>,
-
-  #[serde(skip_serializing_if = "Option::is_none")]
-  self_visits: Option<i64>,
+  pub id: i64,
+  pub uuid: String,
+  pub publisher_uuid: Option<String>,
+  pub publisher_name: Option<String>,
+  pub registered_at: Option<i64>,
+  pub description: Option<String>,
+  pub title: Option<String>,
+  pub visits: Option<i64>,
+  pub favorites: Option<i64>,
+  pub capacity: Option<i64>,
+  pub published_at: Option<i64>,
+  pub does_support_windows: Option<i64>,
+  pub does_support_android: Option<i64>,
+  pub does_support_ios: Option<i64>,
+  pub latest_at: Option<i64>,
+  pub image_cache_file: Option<String>,
+  pub self_visits: Option<i64>,
 }
 
-mod sql_return_types {
-  #[derive(sqlx::FromRow)]
-  pub struct World {
-    pub id: i64,
-    pub uuid: String,
-    pub publisher: Option<i64>,
-    pub publisher_name: Option<String>,
-    pub description: Option<String>,
-    pub title: Option<String>,
-    pub visits: Option<i64>,
-    pub favorites: Option<i64>,
-    pub capacity: Option<i64>,
-    pub published_at: Option<i64>,
-    pub does_support_windows: Option<i64>, // is stored as i64 but actually bool
-    pub does_support_android: Option<i64>, // is stored as i64 but actually bool
-    pub does_support_ios: Option<i64>, // is stored as i64 but actually bool
-    pub self_visits: Option<i64>,
-  }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WorldQuery {
+  pub uuid: String,
+  pub publisher_uuid: Option<String>,
+  pub publisher_name: Option<String>,
+  pub registered_at: Option<i64>,
+  pub description: Option<String>,
+  pub title: Option<String>,
+  pub visits: Option<i64>,
+  pub favorites: Option<i64>,
+  pub capacity: Option<i64>,
+  pub published_at: Option<i64>,
+  pub does_support_windows: Option<i64>,
+  pub does_support_android: Option<i64>,
+  pub does_support_ios: Option<i64>,
+  pub latest_at: Option<i64>,
+  pub image_cache: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WorldDBStructure {
+  pub id: i64,
+  /*  1 */ pub uuid: String,
+  /*  2 */ pub publisher_uuid: Option<String>,
+  /*  3 */ pub publisher_name: Option<String>,
+  /*  4 */ pub registered_at: Option<i64>,
+  /*  5 */ pub description: Option<String>,
+  /*  6 */ pub title: Option<String>,
+  /*  7 */ pub visits: Option<i64>,
+  /*  8 */ pub favorites: Option<i64>,
+  /*  9 */ pub capacity: Option<i64>,
+  /* 10 */ pub published_at: Option<i64>,
+  /* 11 */ pub does_support_windows: Option<i64>,
+  /* 12 */ pub does_support_android: Option<i64>,
+  /* 13 */ pub does_support_ios: Option<i64>,
+  /* 14 */ pub latest_at: Option<i64>,
+  /* 15 */ pub image_cache_file: Option<String>,
 }

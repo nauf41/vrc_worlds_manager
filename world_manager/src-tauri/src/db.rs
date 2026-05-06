@@ -33,24 +33,9 @@ pub async fn init() -> Result<(), sqlx::Error> {
     "CREATE TABLE IF NOT EXISTS worlds (
       id INTEGER PRIMARY KEY,
       uuid TEXT UNIQUE NOT NULL,
-      publisher INTEGER,
+      publisher_uuid TEXT,
+      publisher_name TEXT,
       registered_at INTEGER,
-      FOREIGN KEY (publisher) REFERENCES users(id)
-    );"
-  ).execute(pool).await?;
-
-  sqlx::query!(
-    "CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY,
-      uuid TEXT NOT NULL
-    );"
-  ).execute(pool).await?;
-
-  sqlx::query!(
-    "CREATE TABLE IF NOT EXISTS worlds_cache (
-      id INTEGER PRIMARY KEY,
-      world_id INTEGER NOT NULL,
-      cached_at INTEGER NOT NULL,
       description TEXT,
       title TEXT,
       visits INTEGER,
@@ -60,7 +45,8 @@ pub async fn init() -> Result<(), sqlx::Error> {
       does_support_windows INTEGER,
       does_support_android INTEGER,
       does_support_ios INTEGER,
-      FOREIGN KEY (world_id) REFERENCES worlds(id)
+      latest_at INTEGER, /* epoch msec */
+      image_cache_file TEXT
     );"
   ).execute(pool).await?;
 
@@ -120,16 +106,6 @@ pub async fn init() -> Result<(), sqlx::Error> {
   ).execute(pool).await?;
 
   sqlx::query!(
-    "CREATE TABLE IF NOT EXISTS users_cache (
-      id INTEGER PRIMARY KEY,
-      cached_at INTEGER NOT NULL,
-      user_id INTEGER,
-      name TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );"
-  ).execute(pool).await?;
-
-  sqlx::query!(
     // for log watcher. name: output_log_xxx.txt, read_at: the byte offset of the log file that has been read.
     "CREATE TABLE IF NOT EXISTS log_files (
       id INTEGER PRIMARY KEY,
@@ -154,6 +130,8 @@ pub async fn init() -> Result<(), sqlx::Error> {
       FOREIGN KEY (tags_id) REFERENCES tags(id)
     );"
   ).execute(pool).await?;
+
+  std::fs::create_dir_all("./thumbnail-cache").unwrap();
 
   Ok(())
 }

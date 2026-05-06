@@ -9,13 +9,12 @@ export namespace Messaging {
   }
 
   export type UpdateCache = {
-    world: World,
-    cache: WorldCache,
+    world: WorldQuery,
   }
 
   export type SetRegistered = {
     isRegistered: boolean,
-    world: World,
+    world: string, // uuid
   }
 
   export type Response =
@@ -28,19 +27,21 @@ export namespace Messaging {
     isFavorite: boolean,
   }
 
-  export type World = {
-    uuid: string,
-  }
-
-  export type WorldCache = {
-    description: string | null,
-    title: string | null,
-    visits: number | null,
-    favorites: number | null,
-    capacity: number | null,
-    published_at: number | null, // timestamp, in milliseconds
-    does_support_windows: boolean | null,
-    does_support_android: boolean | null,
-    does_support_ios: boolean | null,
+  export type WorldQuery = {
+    uuid: string;
+    publisher_uuid?: string;
+    publisher_name?: string;
+    registered_at?: number;
+    description?: string;
+    title?: string;
+    visits?: number;
+    favorites?: number;
+    capacity?: number;
+    published_at?: number;
+    does_support_windows?: number;
+    does_support_android?: number;
+    does_support_ios?: number;
+    latest_at?: number;
+    image_url: string;
   }
 }

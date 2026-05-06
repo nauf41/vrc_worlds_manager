@@ -1,4 +1,4 @@
-import { change_tag, create_tag_group, createTag, delete_tag, delete_tag_group, edit_tag_group_name, get_tag_groups_with_tags, get_tags, get_tags_without_taggroup } from "@/models/db";
+import { change_tag, create_tag_group, createTag, delete_tag, delete_tag_group, edit_tag_group_name, get_tag_groups_with_tags, get_tags, get_tags_without_taggroup, upsert_tag_group_attachment } from "@/models/db";
 import { Tag, TagGroup } from "@/types/tags";
 import { create } from "zustand";
 
@@ -6,7 +6,7 @@ export interface TagState {
   tags: Tag[],
   tags_without_taggroups: Tag[],
   taggroups: [TagGroup, number[]][],
-  addTag: (name: string) => Promise<void>,
+  addTag: (name: string, under?: number) => Promise<void>,
   addTagGroup: (name: string) => Promise<void>,
   changeTagName: (tagid: number, name: string) => Promise<void>,
   changeTagGroupName: (taggroupid: number, name: string) => Promise<void>,
@@ -26,8 +26,11 @@ export const useTagStore = create<TagState>((set) => ({
 
     set({tags, tags_without_taggroups, taggroups});
   },
-  addTag: async (name) => {
-    await createTag(name);
+  addTag: async (name, under) => {
+    const tag = await createTag(name)!;
+    if (under !== undefined) {
+      await upsert_tag_group_attachment(tag?.id!, under);
+    }
     await useTagStore.getState().update();
   },
   addTagGroup: async (name) => {

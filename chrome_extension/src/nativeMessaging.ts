@@ -35,8 +35,6 @@ function sendMessage<T extends NativeMessaging.Response["body"]["type"]>(
   })
 }
 
-
-
 export async function getFavoriteStatus(uuid: string): Promise<NativeMessaging.CheckFavoriteResponse> {
   return (await sendMessage(
     {type: "favorite-status", body: {uuid}},
@@ -44,14 +42,14 @@ export async function getFavoriteStatus(uuid: string): Promise<NativeMessaging.C
   )).body;
 }
 
-export async function updateCache(world: NativeMessaging.World, cache: NativeMessaging.WorldCache): Promise<boolean> {
+export async function updateCache(world: NativeMessaging.WorldQuery): Promise<boolean> {
   return (await sendMessage(
-    {type: "update-cache", body: {world, cache}},
+    {type: "update-cache", body: {world}},
     (res) => {}
   )).body;
 }
 
-export async function setRegistered(isRegistered: boolean, world: NativeMessaging.World): Promise<boolean> {
+export async function setRegistered(isRegistered: boolean, world: string): Promise<boolean> {
   return (await sendMessage(
     {type: "set-registered", body: {isRegistered, world}},
     (res) => {}

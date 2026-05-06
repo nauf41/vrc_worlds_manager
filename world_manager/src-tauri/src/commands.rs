@@ -1,48 +1,14 @@
-use crate::db::{tag_groups, tags, worlds};
+use crate::db::{tag_groups, tags, worlds::{self, WorldQuery}};
 
 // === World ===
 #[tauri::command]
-pub async fn add_world(uuid: String, publisher: Option<i64>) -> bool {
-  worlds::add_new_world(&uuid, publisher).await.is_ok()
+pub async fn upsert_world(query: WorldQuery) -> bool {
+  worlds::upsert_world(query).await.is_ok()
 }
 
 #[tauri::command]
-pub async fn get_worlds(filter: worlds::WorldQueryFilters, sort_by: worlds::SortBy) -> Vec<worlds::World> {
-  worlds::get_worlds(&filter, &sort_by).await.unwrap()
-}
-
-#[tauri::command]
-pub async fn add_world_cache(
-  uuid: String,
-  description: Option<String>,
-  title: Option<String>,
-  visits: Option<i64>,
-  favorites: Option<i64>,
-  capacity: Option<i64>,
-  published_at: Option<i64>,
-  does_support_windows: Option<bool>,
-  does_support_android: Option<bool>,
-  does_support_ios: Option<bool>,
-) -> bool {
-  worlds::add_world_cache(&crate::ipc::native_messaging::World {
-    uuid,
-  }, &crate::ipc::native_messaging::WorldCache {
-    description,
-    title,
-    visits,
-    favorites,
-    capacity,
-    published_at,
-    does_support_windows,
-    does_support_android,
-    does_support_ios,
-  }).await.is_ok()
-}
-
-// === Publisher ===
-#[tauri::command]
-pub async fn upsert_publisher(uuid: String, name: Option<String>) -> bool {
-  worlds::upsert_publisher(&uuid, &name).await.is_ok()
+pub async fn get_worlds(filter: worlds::WorldQueryFilters, sort_by: worlds::SortBy) -> Option<Vec<worlds::World>> {
+  worlds::get_worlds(&filter, &sort_by).await.ok()
 }
 
 // === Tags ===
@@ -62,7 +28,7 @@ pub async fn get_tags_with_children() -> Option<Vec<(tags::Tag, Vec<i64>)>> {
 }
 
 #[tauri::command]
-pub async fn get_tags_without_tagggroup() -> Option<Vec<tags::Tag>> {
+pub async fn get_tags_without_taggroup() -> Option<Vec<tags::Tag>> {
   tags::get_without_taggroup().await.ok()
 }
 

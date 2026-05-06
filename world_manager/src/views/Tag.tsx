@@ -8,7 +8,7 @@ import { AppState } from "@/viewmodels/app";
 export function TagCreate(props: {state: TagState, taggroup?: TagGroup}) {
   return (
     <div>
-      <form onSubmit={async (e) => {e.preventDefault(); await props.state.addTag((document.getElementById("add-a-tag:name") as HTMLInputElement).value);}}>
+      <form onSubmit={async (e) => {e.preventDefault(); await props.state.addTag((document.getElementById("add-a-tag:name") as HTMLInputElement).value, props.taggroup?.id);}}>
         <FieldGroup>
           <FieldSet>
             <FieldLegend><span className="text-gray-400">Adding a</span> tag{props.taggroup && (<><span className="text-gray-400"> under tag folder </span>{props.taggroup.name}</>)}</FieldLegend>

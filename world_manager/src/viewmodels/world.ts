@@ -2,13 +2,14 @@ import { World } from "@/types/world";
 import { create } from "zustand";
 import { Now as AppNow, useAppStore } from "./app";
 import { getWorlds } from "@/models/db";
+import { listen } from "@tauri-apps/api/event";
 
 interface WorldState {
   now: World[],
   updateWorld: (query: AppNow) => Promise<void>
 }
 
-export const useWorldState = create<WorldState>((set) => ({
+export const useWorldStore = create<WorldState>((set) => ({
   now: [],
   updateWorld: async(query) => {
     switch (query.type) {
@@ -17,24 +18,29 @@ export const useWorldState = create<WorldState>((set) => ({
         break;
       }
       case "all-favorited": {
-        set({now: await getWorlds({tag_id: null, registered: true, classified: null}, "Recency") ?? []});
+        set({now: await getWorlds({tag_id: 0}, "Recency") ?? []});
         break;
       }
       case "tagged": {
-        set({now: await getWorlds({tag_id: query.tag.id, registered: null, classified: null}, "Recency") ?? []});
+        set({now: await getWorlds({tag_id: query.tag.id}, "Recency") ?? []});
         break;
       }
       case "non-tagged": {
-        set({now: await getWorlds({tag_id: -1, registered: null, classified: null}, "Recency") ?? []});
+        set({now: await getWorlds({tag_id: -1}, "Recency") ?? []});
         break;
       }
       case "all": {
-        set({now: await getWorlds({tag_id: null, registered: null, classified: null}, "Recency") ?? []});
+        set({now: await getWorlds({tag_id: null}, "Recency") ?? []});
       }
     }
   }
 }));
 
 export function init() {
-  useAppStore.subscribe(state => state.now, now => useWorldState.getState().updateWorld(now))
+  const update = () => useWorldStore.getState().updateWorld(useAppStore.getState().now);
+  listen("world-cache-updated", update);
+  listen("registered-status-updated", update);
+  listen("favorite-status-updated", update);
+  update();
+  useAppStore.subscribe(state => state.now, now => useWorldStore.getState().updateWorld(now));
 }
