@@ -1,43 +1,13 @@
 import { Tag, TagGroup } from "@/types/tags";
-import { SortBy, World, WorldQueryFilters } from "@/types/world";
+import { SortBy, World, WorldQuery, WorldQueryFilters } from "@/types/world";
 import { invoke } from "@tauri-apps/api/core";
 
-export async function addWorld(uuid: string, publisher?: number): Promise<boolean> {
-  return await invoke("add_world", { uuid, publisher: publisher ?? null });
+export async function upsert_world(query: WorldQuery): Promise<boolean> {
+  return await invoke("upsert_world", { query });
 }
 
 export async function getWorlds(filter: WorldQueryFilters, sortBy: SortBy): Promise<World[] | null> {
   return await invoke("get_worlds", { filter, sortBy });
-}
-
-export async function addWorldcache(
-  uuid: string,
-  description?: string,
-  title?: string,
-  visits?: number,
-  favorites?: number,
-  capacity?: number,
-  publishedAt?: number,
-  doesSupportWindows?: boolean,
-  doesSupportAndroid?: boolean,
-  doesSupportIos?: boolean
-): Promise<boolean> {
-  return await invoke("add_world_cache", {
-    uuid,
-    description: description ?? null,
-    title: title ?? null,
-    visits: visits ?? null,
-    favorites: favorites ?? null,
-    capacity: capacity ?? null,
-    publishedAt: publishedAt ?? null,
-    doesSupportWindows: doesSupportWindows ?? null,
-    doesSupportAndroid: doesSupportAndroid ?? null,
-    doesSupportIos: doesSupportIos ?? null
-  });
-}
-
-export async function upsertPublisher(uuid: string, name: string | null): Promise<boolean> {
-  return await invoke("upsert_publisher", { uuid, name });
 }
 
 export async function createTag(name: string): Promise<Tag | null> {
@@ -50,6 +20,10 @@ export async function get_tags(): Promise<Tag[] | null> {
 
 export async function get_tags_with_children(): Promise<[Tag, number[]][] | null> {
   return await invoke("get_tags_with_children");
+}
+
+export async function get_tags_without_taggroup(): Promise<Tag[] | null> {
+  return await invoke("get_tags_without_taggroup");
 }
 
 export async function get_favorited_worlds(): Promise<number[] | null> {
@@ -94,8 +68,4 @@ export async function delete_tag_group(taggroupid: number): Promise<boolean> {
 
 export async function upsert_tag_group_attachment(tagid: number, taggroupid: number | null): Promise<boolean> {
   return await invoke("upsert_tag_group_attachment", { tagid, taggroupid });
-}
-
-export async function get_tags_without_taggroup(): Promise<Tag[] | null> {
-  return await invoke("get_tags_without_tagggroup");
 }

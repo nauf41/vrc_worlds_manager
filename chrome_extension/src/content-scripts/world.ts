@@ -33,20 +33,25 @@ export function main() {
         if (platform.title.includes("iOS")) ios = true;
       }
 
+      const pub = document.querySelector<HTMLLinkElement>(`a.ms-2`);
+      const publisherUuid = pub?.href.match(/\/(usr_.+?)$/)?.[1] ?? pub?.href.match(/\/(usr_.+?)\//)?.[1] ?? undefined;
+
       updateCache(
         {
           uuid: location.href.match(/wrld_[0-9a-f_-]+/)![0],
-        },
-        {
-          description: document.querySelector(`div[title="World Description"]`)?.textContent ?? null,
-          title: document.querySelector(`h2.tw-overflow-hidden.tw-overflow-ellipsis.tw-line-clamp-2.tw-hyphens-auto.tw-w-full`)?.textContent ?? null,
-          visits: parseInt(document.querySelector(`div[aria-label="Visits"]`)?.textContent.replace(",", "") ?? "0"),
-          favorites: parseInt(document.querySelector(`div[aria-label="Favorites"]`)?.textContent.replace(",", "") ?? "0"),
-          capacity: parseInt(document.querySelector(`div[aria-label="Capacity"]`)?.textContent.replace(",", "") ?? "0"),
-          published_at: new Date(document.querySelector(`div[aria-label="Publish Date"]`)?.textContent ?? "").getTime() || null,
-          does_support_windows: win,
-          does_support_android: android,
-          does_support_ios: ios,
+          publisher_uuid: publisherUuid ?? "",
+          publisher_name: pub?.textContent ?? "",
+          description: document.querySelector(`div[title="World Description"]`)?.textContent ?? "",
+          title: document.querySelector(`h2.tw-overflow-hidden.tw-overflow-ellipsis.tw-line-clamp-2.tw-hyphens-auto.tw-w-full`)?.textContent ?? "",
+          visits: parseInt(document.querySelector(`div[aria-label="Visits"]`)?.textContent?.replace(",", "") ?? "0"),
+          favorites: parseInt(document.querySelector(`div[aria-label="Favorites"]`)?.textContent?.replace(",", "") ?? "0"),
+          capacity: parseInt(document.querySelector(`div[aria-label="Capacity"]`)?.textContent?.replace(",", "") ?? "0"),
+          published_at: new Date(document.querySelector(`div[aria-label="Publish Date"]`)?.textContent ?? "").getTime(),
+          does_support_windows: win ? 1 : 0,
+          does_support_android: android ? 1 : 0,
+          does_support_ios: ios ? 1 : 0,
+          latest_at: new Date().getTime(),
+          image_url: (document.querySelector("div.css-13l6lm7.e1mfpqtc1") as HTMLDivElement)?.style?.backgroundImage ?? "",
         }
       );
     } catch (e) {

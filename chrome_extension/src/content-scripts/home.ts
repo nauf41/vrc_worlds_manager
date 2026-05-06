@@ -47,28 +47,20 @@ export function main() {
 
           updateCache(
             {
-              uuid: uuid!,
-            },
-            {
+              uuid,
               description: world
                 ?.children[0] // css-1brgsnm
                 ?.children[0] // flex-grow-1
                 ?.children[1] // align-items-start
                 ?.children[1] // mt-2
-                ?.textContent ?? null,
+                ?.textContent ?? "",
               title: world
                 ?.children[0] // css-1brgsnm
                 ?.children[0] // flex-grow-1
                 ?.children[1] // align-items-start
                 ?.children[0] // a
-                ?.textContent ?? null,
-              visits: null,
-              favorites: null,
-              capacity: null,
-              published_at: null,
-              does_support_windows: null,
-              does_support_android: null,
-              does_support_ios: null,
+                ?.textContent ?? "",
+              image_url: (document.querySelector("div.css-c07466.e1p8e5dk5") as HTMLDivElement).style.backgroundImage,
             }
           );
         }

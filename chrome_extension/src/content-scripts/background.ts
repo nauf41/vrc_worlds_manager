@@ -15,9 +15,9 @@ export function checkFavoriteStatus(uuid: string): Promise<Messaging.Response & 
 }
 
 export function setRegistered(isRegistered: boolean, {uuid}: {uuid: string}): Promise<Messaging.Response & {type: "set-registered"}> {
-  return sendRequest({type: "set-registered", body: {isRegistered, world: {uuid}}});
+  return sendRequest({type: "set-registered", body: {isRegistered, world: uuid}});
 }
 
-export function updateCache(world: Messaging.World, cache: Messaging.WorldCache): Promise<Messaging.Response & {type: "update-cache"}> {
-  return sendRequest({type: "update-cache", body: {world, cache}});
+export function updateCache(world: Messaging.WorldQuery): Promise<Messaging.Response & {type: "update-cache"}> {
+  return sendRequest({type: "update-cache", body: {world}});
 }
