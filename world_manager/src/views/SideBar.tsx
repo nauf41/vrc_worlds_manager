@@ -40,7 +40,7 @@ export function SideBar(props: {state: AppState}) {
               }
             </CommandGroup>
             { tags.taggroups.map(([group, children]) => (
-              <CommandGroup heading={
+              <CommandGroup key={group.id} heading={
                 (
                   <div className="flex">
                     <span>{group.name}</span>

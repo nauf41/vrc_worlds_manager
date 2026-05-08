@@ -51,7 +51,6 @@ export function main() {
           does_support_windows: win ? 1 : 0,
           does_support_android: android ? 1 : 0,
           does_support_ios: ios ? 1 : 0,
-          latest_at: new Date().getTime(),
           image_url: (document.querySelector(`meta[name="og:image"]`) as HTMLMetaElement)?.content ?? "",
         }
       );

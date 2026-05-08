@@ -45,12 +45,14 @@ pub async fn attach_world(tagid: i64, worldid: i64) -> bool {
 
 #[tauri::command]
 pub async fn detach_world(tagid: i64, worldid: i64) -> bool {
-  tags::detach(tagid, worldid).await.is_ok()
+  tags::detach(tagid, worldid).await.unwrap();
+  true
 }
 
 #[tauri::command]
 pub async fn change_tag(tagid: i64, data: tags::Tag) -> bool {
-  tags::update(tagid, data).await.is_ok()
+  tags::update(tagid, data).await.unwrap();
+  true
 }
 
 #[tauri::command]

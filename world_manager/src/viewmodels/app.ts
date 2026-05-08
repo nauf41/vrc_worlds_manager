@@ -1,4 +1,5 @@
 import { Tag, TagGroup } from "@/types/tags";
+import { World } from "@/types/world";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
@@ -7,6 +8,8 @@ export interface AppState {
   display: "grid" | "list",
   change_display: (after: "grid" | "list") => void,
   change_type: (query: Now) => void,
+  dialog: Dialog,
+  change_dialog: (d: Dialog) => void,
 }
 
 export const useAppStore = create<AppState>()(subscribeWithSelector((set) => ({
@@ -15,7 +18,11 @@ export const useAppStore = create<AppState>()(subscribeWithSelector((set) => ({
   change_display: (after) => { set({display: after}) },
   change_type: (query) => {
     set({now: query})
-  }
+  },
+  dialog: {type: "none"},
+  change_dialog: (d) => {
+    set({dialog: d});
+  },
 })));
 
 export type Now =
@@ -28,3 +35,7 @@ export type Now =
   | {type: "all-favorited"}
   | {type: "all"}
   | {type: "tagged", tag: Tag}
+
+export type Dialog =
+  | {type: "none"}
+  | {type: "world_tag", world: World}

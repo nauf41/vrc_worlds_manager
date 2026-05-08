@@ -83,15 +83,17 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
           does_support_windows: None,
           does_support_android: None,
           does_support_ios: None,
-          latest_at: Some(session.ended_at.timestamp_millis()),
+          latest_at: Some(session.started_at.timestamp_millis()),
           registered_at: None,
         }).await?.id;
 
-        crate::db::worlds::new_session(
-          id,
-          session.started_at.timestamp_millis(),
-          session.ended_at.timestamp_millis()
-        ).await?;
+        if let Some(t) = &session.ended_at {
+          crate::db::worlds::new_session(
+            id,
+            session.started_at.timestamp_millis(),
+            t.timestamp_millis(),
+          ).await?;
+        }
 
       }
     }
@@ -174,7 +176,7 @@ fn process_file<R: std::io::BufRead + std::io::Seek>(mut reader: R) -> anyhow::R
     } else if exit_room_regex.is_match(&buf) {
       sessions.push(Session::new(
         session_from.clone().ok_or(anyhow::anyhow!("Missing session start time"))?,
-        now_header.ok_or(anyhow::anyhow!("Missing session end time (in log header)"))?.time,
+        Some(now_header.ok_or(anyhow::anyhow!("Missing session end time (in log header)"))?.time),
         session_world_uuid.clone().ok_or(anyhow::anyhow!("Missing world UUID"))?,
         session_world_name.clone().ok_or(anyhow::anyhow!("Missing world name"))?,
       ));
@@ -227,13 +229,13 @@ impl LogLevel {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Session {
   started_at: chrono::DateTime<Utc>,
-  ended_at: chrono::DateTime<Utc>,
+  ended_at: Option<chrono::DateTime<Utc>>,
   world_uuid: String,
   world_name: String,
 }
 
 impl Session {
-  pub fn new(started_at: chrono::DateTime<Utc>, ended_at: chrono::DateTime<Utc>, world_uuid: String, world_name: String) -> Self {
+  pub fn new(started_at: chrono::DateTime<Utc>, ended_at: Option<chrono::DateTime<Utc>>, world_uuid: String, world_name: String) -> Self {
     Self {
       started_at,
       ended_at,
@@ -299,7 +301,7 @@ use super::*;
     assert_eq!(
       (log.iter().map(|s| s.len() as i64).sum(), vec![Session::new(
         Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
-        Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(),
+        Some(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap()),
         "wrld_1234567890".to_owned(),
         "test".to_owned(),
       )]),
@@ -322,12 +324,12 @@ use super::*;
       assert_eq!(
         (log.iter().map(|s| s.len() as i64).sum(), vec![Session::new(
           Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
-          Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap(),
+          Some(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap()),
           "wrld_1234567890".to_owned(),
           "test".to_owned(),
         ), Session::new(
           Utc.with_ymd_and_hms(2000, 1, 2, 0, 0, 2).unwrap(),
-          Utc.with_ymd_and_hms(2000, 1, 2, 0, 5, 0).unwrap(),
+          Some(Utc.with_ymd_and_hms(2000, 1, 2, 0, 5, 0).unwrap()),
           "wrld_2234567890".to_owned(),
           "test2".to_owned(),
         )]),
