@@ -51,8 +51,8 @@ pub async fn get_with_children() -> Result<Vec<(Tag, Vec<i64>)>, sqlx::Error> {
         if let Some(vv) = tag.world_id {
           v.1.push(vv);
         }
+        continue;
       }
-      continue;
     }
 
     res.push((
@@ -194,4 +194,13 @@ struct TagWithChild {
   pub tag_id: i64,
   pub tag_name: String,
   pub world_id: Option<i64>,
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[tokio::test]
+  async fn test_get_with_children() {
+  }
 }

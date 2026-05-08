@@ -74,6 +74,7 @@ export function WorldTable() {
 export function World(props: {world: TWorld}) {
   const tagStore = useTagStore();
   const worldStore = useWorldStore();
+  const appStore = useAppStore();
 
   return (
     <div className="col-span-4">
@@ -101,7 +102,7 @@ export function World(props: {world: TWorld}) {
             { !tagStore.tags.find(v => v[0].id === 0)![1].includes(props.world.id) && (
               <Button className="p-2" onClick={async () => {await attach_world(0, props.world.id); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
             )}
-            <Button className="p-2"><BookmarkPlus className="w-full h-full" /></Button>
+            <Button className="p-2" onClick={() => {appStore.change_dialog({type: "world_tag", world: props.world})}}><BookmarkPlus className="w-full h-full" /></Button>
           </div>
         </CardFooter>
       </Card>

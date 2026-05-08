@@ -14,7 +14,7 @@ export function TagCreate(props: {state: TagState, taggroup?: TagGroup}) {
             <FieldLegend><span className="text-gray-400">Adding a</span> tag{props.taggroup && (<><span className="text-gray-400"> under tag folder </span>{props.taggroup.name}</>)}</FieldLegend>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="add-a-tag-group:name">
+                <FieldLabel htmlFor="add-a-tag:name">
                   Name
                 </FieldLabel>
                 <Input
@@ -37,7 +37,7 @@ export function TagCreate(props: {state: TagState, taggroup?: TagGroup}) {
 export function TagEdit(props: {appState: AppState, tagState: TagState, tag: Tag}) {
   return (
     <div>
-      <form onSubmit={async (e) => {e.preventDefault(); await props.tagState.changeTagName(props.tag.id, (document.getElementById("rename-a-tag:name") as HTMLInputElement).value);}}>
+      <form onSubmit={async (e) => {console.log("submitting form"); await props.tagState.changeTagName(props.tag.id, (document.getElementById("rename-a-tag:name") as HTMLInputElement).value); e.preventDefault();}}>
         <FieldGroup>
           <FieldSet>
             <FieldLegend><span className="text-gray-400">Editing a </span>tag <span className="text-gray-400">named</span> {props.tag.name}</FieldLegend>
@@ -47,7 +47,7 @@ export function TagEdit(props: {appState: AppState, tagState: TagState, tag: Tag
                   Name
                 </FieldLabel>
                 <Input
-                  id="rename-a-tag-group:name"
+                  id="rename-a-tag:name"
                   defaultValue={props.tag.name}
                   required
                 />
