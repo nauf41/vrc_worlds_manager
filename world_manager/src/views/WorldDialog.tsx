@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,16 +10,9 @@ import { World } from "@/types/world";
 import { AppState } from "@/viewmodels/app";
 import { TagState } from "@/viewmodels/tags";
 import { useWorldStore } from "@/viewmodels/world";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 
-function i<T>(s: T):T{
-  console.log(s);
-  return s;
-}
-
-// TODO: refer to tag status and make it checked or not
 export function WorldDialog(props: {world: World, tags: TagState, app: AppState}) {
-  const worlds = useWorldStore();
   const mp: Map<number, [boolean, boolean]> = new Map();
   props.tags.tags.forEach((tag) => { mp.set(tag[0].id, [tag[1].includes(props.world.id), tag[1].includes(props.world.id)]) });
   const [checkedStatus, setCheckedStatus] = useState<Map<number, [boolean, boolean]>>(mp); // [tag, [now, default]]
@@ -43,7 +36,7 @@ export function WorldDialog(props: {world: World, tags: TagState, app: AppState}
           }
 
           await Promise.all(tasks);
-          await props.tags.update();
+          await Promise.all([props.tags.update(), useWorldStore.getState().updateWorld(props.app.now)]);
 
           props.app.change_dialog({type: "none"});
         }}>

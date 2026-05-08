@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
-import { FolderPlus, Grid, List, MoreHorizontal, MoreVertical, Plus, PlusIcon, Settings } from "lucide-react";
+import { FolderPlus, Grid, List, MoreHorizontal, Plus, PlusIcon, Settings } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { useTagStore } from "@/viewmodels/tags";
