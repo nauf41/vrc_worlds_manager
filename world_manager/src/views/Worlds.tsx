@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -9,11 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { attach_world } from "@/models/db";
-
 import type { World as TWorld } from "@/types/world";
 import { useAppStore } from "@/viewmodels/app";
 import { useTagStore } from "@/viewmodels/tags";

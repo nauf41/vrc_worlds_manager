@@ -6,12 +6,10 @@ import { TagCreate, TagEdit } from "./Tag";
 import { TagGroupCreate, TagGroupEdit } from "./TagGroup";
 import { useTagStore } from "@/viewmodels/tags";
 import { WorldDialog } from "./WorldDialog";
-import { useWorldStore } from "@/viewmodels/world";
 
 function App() {
   const appState = useAppStore();
   const tagState = useTagStore();
-  const worldState = useWorldStore();
 
   return (
     <main className="flex flex-col bg-background text-foreground overflow-hidden h-screen">
