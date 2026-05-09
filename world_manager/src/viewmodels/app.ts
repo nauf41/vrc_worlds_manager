@@ -35,6 +35,7 @@ export type Now =
   | {type: "all-favorited"}
   | {type: "all"}
   | {type: "tagged", tag: Tag}
+  | {type: "import-tags"}
 
 export type Dialog =
   | {type: "none"}

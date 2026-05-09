@@ -1,3 +1,5 @@
+import { Config } from "@/types/config";
+import { ChannelInfo, GuildInfo } from "@/types/discord";
 import { Tag, TagGroup } from "@/types/tags";
 import { SortBy, World, WorldQuery, WorldQueryFilters } from "@/types/world";
 import { invoke } from "@tauri-apps/api/core";
@@ -68,4 +70,28 @@ export async function delete_tag_group(taggroupid: number): Promise<boolean> {
 
 export async function upsert_tag_group_attachment(tagid: number, taggroupid: number | null): Promise<boolean> {
   return await invoke("upsert_tag_group_attachment", { tagid, taggroupid });
+}
+
+export async function get_config(): Promise<Config | null> {
+  return await invoke("get_config");
+}
+
+export async function update_config(update_to: Config): Promise<boolean> {
+  return await invoke("update_config", {new: update_to});
+}
+
+export async function get_discord_guilds(): Promise<GuildInfo[] | null> {
+  return await invoke("get_discord_guilds");
+}
+
+export async function get_discord_channels(guild_id: string): Promise<[string | null, ChannelInfo[]][] | null> {
+  return await invoke("get_discord_channels", {guildId: guild_id});
+}
+
+export async function add_discord_link(tag_id: number, channel: ChannelInfo, do_auto_fetch: boolean, do_auto_post: boolean): Promise<boolean> {
+  return await invoke("add_discord_link", {tagId: tag_id, channel, doAutoFetch: do_auto_fetch, doAutoPost: do_auto_post});
+}
+
+export async function parse_channel(channel_id: string): Promise<ChannelInfo | null> {
+  return await invoke("parse_channel", {channelId: channel_id});
 }

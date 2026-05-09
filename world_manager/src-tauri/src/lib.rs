@@ -2,6 +2,8 @@ mod db;
 mod ipc;
 mod commands;
 mod log_watcher;
+mod discord_bot;
+mod config;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,7 +19,7 @@ pub fn run() {
                 rec.args(),
             )
         })
-        .filter(None, log::LevelFilter::Info)
+        .filter(None, log::LevelFilter::Warn)
         .target(env_logger::Target::Stderr)
         .init();
 
@@ -42,6 +44,12 @@ pub fn run() {
             commands::detach_world,
             commands::get_tags_without_taggroup,
             commands::upsert_world,
+            commands::get_config,
+            commands::update_config,
+            commands::get_discord_channels,
+            commands::add_discord_link,
+            commands::get_discord_guilds,
+            commands::parse_channel,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -66,6 +74,15 @@ pub fn run() {
                         eprintln!("Error while running log watcher: {err}");
                     }
                 });
+                tauri::async_runtime::spawn(async move {
+                    if let Ok(conf) = crate::config::get_conf() {
+                        if let Some(token) = &conf.discord_bot_token {
+                            if let Err(err) = discord_bot::main(token).await {
+                                eprintln!("Error while running discord bot: {err}");
+                            }
+                        }
+                    }
+                })
             });
             Ok(())
         })
