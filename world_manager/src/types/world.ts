@@ -41,3 +41,23 @@ export type WorldQuery = {
   latest_at?: number;
   image_cache?: string; // base64-encoded
 }
+
+
+export type WorldDBStructure = {
+  id: number,
+  uuid: string,
+  publisher_uuid: string | null,
+  publisher_name: string | null,
+  registered_at: number | null,
+  description: string | null,
+  title: string | null,
+  visits: number | null,
+  favorites: number | null,
+  capacity: number | null,
+  published_at: number | null,
+  does_support_windows: number | null,
+  does_support_android: number | null,
+  does_support_ios: number | null,
+  latest_at: number | null,
+  image_cache_file: string | null,
+}

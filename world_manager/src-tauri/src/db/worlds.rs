@@ -22,7 +22,7 @@ pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error
       does_support_windows = COALESCE(EXCLUDED.does_support_windows, worlds.does_support_windows),
       does_support_android = COALESCE(EXCLUDED.does_support_android, worlds.does_support_android),
       does_support_ios = COALESCE(EXCLUDED.does_support_ios, worlds.does_support_ios),
-      latest_at = COALESCE(EXCLUDED.latest_at, worlds.latest_at)
+      latest_at = MAX(worlds.latest_at, COALESCE(EXCLUDED.latest_at, worlds.latest_at))
       RETURNING *
     ;
     ",

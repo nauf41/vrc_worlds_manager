@@ -2,7 +2,7 @@ import { SideBar } from "./SideBar";
 import { Worlds, WorldTable } from "./Worlds";
 import { useAppStore } from "../viewmodels/app";
 import { Settings } from "./Settings";
-import { TagCreate, TagEdit } from "./Tag";
+import { ImportTags, TagCreate, TagEdit } from "./Tag";
 import { TagGroupCreate, TagGroupEdit } from "./TagGroup";
 import { useTagStore } from "@/viewmodels/tags";
 import { WorldDialog } from "./WorldDialog";
@@ -36,6 +36,9 @@ function App() {
           ) }
           { (appState.now.type === "non-tagged" || appState.now.type === "all-favorited" || appState.now.type === "tagged" || appState.now.type === "all") && (
             appState.display === "list" ? <WorldTable /> : <Worlds />
+          )}
+          { appState.now.type === "import-tags" && (
+            <ImportTags />
           )}
         </div>
       </div>

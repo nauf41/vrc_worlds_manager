@@ -70,8 +70,9 @@ export function SideBar(props: {state: AppState}) {
           </CommandList>
         </ScrollArea>
         <div className="mt-auto flex flex-col">
+          <Button className="mx-2 mb-2" variant="outline" onClick={() => props.state.change_type({type: "import-tags"})} style={props.state.now.type === "import-tags" ? {backgroundColor: "var(--color-gray-600) !important"} : {}}><Plus /> Import Tags</Button>
           <div className="flex flex-row items-center mx-2 pb-2 gap-2">
-            <ToggleGroup className="" type="single" variant="outline" value={props.state.display} onValueChange={(e) => {props.state.change_display(e as ("grid" | "list"))}}>
+            <ToggleGroup type="single" variant="outline" value={props.state.display} onValueChange={(e) => {props.state.change_display(e as ("grid" | "list"))}}>
               <ToggleGroupItem value="grid"><Grid /></ToggleGroupItem>
               <ToggleGroupItem value="list"><List /></ToggleGroupItem>
             </ToggleGroup>

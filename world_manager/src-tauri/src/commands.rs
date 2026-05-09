@@ -1,4 +1,8 @@
+use serde::{Deserialize, Serialize};
+use serenity::all::{ChannelId, ChannelType};
+
 use crate::db::{tag_groups, tags, worlds::{self, WorldQuery}};
+use crate::config;
 
 // === World ===
 #[tauri::command]
@@ -94,4 +98,74 @@ pub async fn delete_tag_group(taggroupid: i64) -> bool {
 #[tauri::command]
 pub async fn upsert_tag_group_attachment(tagid: i64, taggroupid: Option<i64>) -> bool {
   tag_groups::upsert_attachment(tagid, taggroupid).await.is_ok()
+}
+
+// === config ===
+#[tauri::command]
+pub async fn get_config() -> Option<config::Config> {
+  config::get_conf().ok().cloned()
+}
+
+#[tauri::command]
+pub async fn update_config(new: config::Config) -> bool {
+  config::update_conf(new).is_ok()
+}
+
+// === discord bot ===
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuildInfo {
+  pub id: String,
+  pub name: String,
+}
+#[tauri::command]
+pub async fn get_discord_guilds() -> Option<Vec<GuildInfo>> {
+  if let Ok(v) = crate::discord_bot::http::get_guilds().await {
+    Some(v.into_iter().map(|g| GuildInfo { id: g.id.to_string(), name: g.name }).collect())
+  } else {
+    None
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelInfo {
+  pub id: String,
+  pub name: String,
+  pub is_category: bool,
+  pub parent_id: Option<String>,
+}
+#[tauri::command]
+pub async fn get_discord_channels(guild_id: String) -> Option<Vec<(Option<String>, Vec<ChannelInfo>)>> {
+  if let Ok(v) = crate::discord_bot::http::get_channels(serenity::all::GuildId::new(guild_id.parse().unwrap())).await {
+    Some(v.iter().map(|p| {
+      (
+        p.0.and_then(|v| Some(v.get().to_string())),
+        p.1.into_iter().map(|a| ChannelInfo {
+          id: a.id.to_string(),
+          name: a.name.clone(),
+          is_category: a.kind == ChannelType::Category,
+          parent_id: a.parent_id.and_then(|v| Some(v.to_string()))
+        }).collect()
+      )
+    }).collect())
+  } else {
+    None
+  }
+}
+
+// u63なため、signedとして扱ってもOK
+#[tauri::command]
+pub async fn add_discord_link(tag_id: String, channel: ChannelInfo, do_auto_fetch: bool, do_auto_post: bool) -> bool {
+  if let Err(_) = crate::db::discord::upsert_channel(channel.id.parse().unwrap(), channel.name, None).await {
+    return false;
+  }
+  if let Err(_) = crate::db::discord::create_link(tag_id.parse().unwrap(), channel.id.parse().unwrap(), do_auto_fetch, do_auto_post).await {
+    return false;
+  }
+
+  return true;
+}
+
+#[tauri::command]
+pub async fn parse_channel(channel_id: String) -> Option<Vec<crate::db::worlds::WorldDBStructure>> {
+  crate::discord_bot::http::get_worlds_from_channel(ChannelId::new(channel_id.parse().unwrap())).await.ok()
 }

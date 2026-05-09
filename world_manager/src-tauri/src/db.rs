@@ -4,6 +4,7 @@ pub mod worlds;
 pub mod tags;
 pub mod log_files;
 pub mod tag_groups;
+pub mod discord;
 
 pub async fn get_pool() -> &'static sqlx::SqlitePool {
   static POOL: OnceLock<sqlx::SqlitePool> = OnceLock::new();
@@ -71,27 +72,22 @@ pub async fn init() -> Result<(), sqlx::Error> {
   ).execute(pool).await?;
 
   sqlx::query!(
-    "CREATE TABLE IF NOT EXISTS folders (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL
-    );"
-  ).execute(pool).await?;
-
-  sqlx::query!(
     "CREATE TABLE IF NOT EXISTS discord_channels (
       id INTEGER PRIMARY KEY,
-      uuid TEXT NOT NULL,
       name TEXT NOT NULL,
-      latest_read_snowflake TEXT
+      latest_read_id INTEGER
     );"
   ).execute(pool).await?;
 
   sqlx::query!(
-    "CREATE TABLE IF NOT EXISTS folders_discord_channels (
-      folder_id INTEGER NOT NULL,
-      discord_channel_id INTEGER NOT NULL,
+    "CREATE TABLE IF NOT EXISTS tags_discord_channels (
+      tag_id INTEGER NOT NULL UNIQUE,
+      discord_channel_id INTEGER NOT NULL UNIQUE,
       do_auto_fetch INTEGER NOT NULL,
-      do_auto_post INTEGER NOT NULL
+      do_auto_post INTEGER NOT NULL,
+      PRIMARY KEY (tag_id, discord_channel_id),
+      FOREIGN KEY (tag_id) REFERENCES tags(id),
+      FOREIGN KEY (discord_channel_id) REFERENCES discord_channels(id)
     );"
   ).execute(pool).await?;
 
