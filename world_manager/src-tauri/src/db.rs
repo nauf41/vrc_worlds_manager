@@ -42,7 +42,7 @@ pub async fn init() -> Result<(), sqlx::Error> {
       registered_at INTEGER,
       description TEXT,
       title TEXT,
-      visits INTEGER,
+      visits INTEGER NOT NULL DEFAULT 0, /* self visits */
       favorites INTEGER,
       capacity INTEGER,
       published_at INTEGER,
@@ -99,18 +99,6 @@ pub async fn init() -> Result<(), sqlx::Error> {
       PRIMARY KEY (tag_id, discord_channel_id),
       FOREIGN KEY (tag_id) REFERENCES tags(id),
       FOREIGN KEY (discord_channel_id) REFERENCES discord_channels(id)
-    );"
-    )
-    .execute(pool)
-    .await?;
-
-    sqlx::query!(
-        "CREATE TABLE IF NOT EXISTS activities (
-      id INTEGER PRIMARY KEY,
-      world_id INTEGER,
-      started_at INTEGER NOT NULL,
-      ended_at INTEGER,
-      FOREIGN KEY (world_id) REFERENCES worlds(id)
     );"
     )
     .execute(pool)

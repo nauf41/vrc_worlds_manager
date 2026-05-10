@@ -2,13 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use super::get_pool;
 
-pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sqlx::Error> {
+pub async fn upsert_world(w: WorldQuery) -> Result<(bool, World), sqlx::Error> {
     /// bool: true if inserted, false if updated
   let r = sqlx::query_as!(
-    WorldDBStructure,
+    World,
     "
-    INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, visits, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     ON CONFLICT(uuid) DO NOTHING
       RETURNING *
     ;
@@ -19,7 +19,6 @@ pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sql
     w.registered_at,
     w.description,
     w.title,
-    w.visits,
     w.favorites,
     w.capacity,
     w.published_at,
@@ -33,7 +32,7 @@ pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sql
         Ok((true, w))
     } else {
         sqlx::query_as!(
-            WorldDBStructure,
+            World,
             r#"
     UPDATE worlds
     SET
@@ -43,7 +42,6 @@ pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sql
       registered_at = COALESCE($4, worlds.registered_at),
       description = COALESCE($5, worlds.description),
       title = COALESCE($6, worlds.title),
-      visits = COALESCE($7, worlds.visits),
       favorites = COALESCE($8, worlds.favorites),
       capacity = COALESCE($9, worlds.capacity),
       published_at = COALESCE($10, worlds.published_at),
@@ -77,7 +75,6 @@ pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sql
             w.registered_at,
             w.description,
             w.title,
-            w.visits,
             w.favorites,
             w.capacity,
             w.published_at,
@@ -159,8 +156,7 @@ pub async fn get_worlds(
           w.does_support_android,
           w.does_support_ios,
           w.latest_at,
-          w.image_cache_file,
-          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+          w.image_cache_file
         FROM worlds w
 
         ORDER BY w.latest_at DESC
@@ -188,15 +184,8 @@ pub async fn get_worlds(
           w.does_support_android,
           w.does_support_ios,
           w.latest_at,
-          w.image_cache_file,
-          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+          w.image_cache_file
         FROM worlds w
-        LEFT JOIN (
-          SELECT world_id, COUNT(*) AS cnt
-          FROM activities
-          GROUP BY world_id
-        ) ac
-          ON w.id = ac.world_id
         LEFT JOIN tags_worlds tw
           ON w.id = tw.worlds_id
 
@@ -228,8 +217,7 @@ pub async fn get_worlds(
           w.does_support_android,
           w.does_support_ios,
           w.latest_at,
-          w.image_cache_file,
-          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+          w.image_cache_file
         FROM worlds w
         INNER JOIN tags_worlds tw
           ON w.id = tw.worlds_id
@@ -268,8 +256,7 @@ pub async fn get_worlds(
           w.does_support_android,
           w.does_support_ios,
           w.latest_at,
-          w.image_cache_file,
-          COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+          w.image_cache_file
         FROM worlds w
         INNER JOIN tags_worlds tw
           ON w.id = tw.worlds_id
@@ -306,8 +293,7 @@ pub async fn get_world_by_id(id: i64) -> Result<Option<World>, sqlx::Error> {
       w.does_support_android,
       w.does_support_ios,
       w.latest_at,
-      w.image_cache_file,
-      COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+      w.image_cache_file
     FROM worlds w
     WHERE w.id = $1
     ;
@@ -316,19 +302,16 @@ pub async fn get_world_by_id(id: i64) -> Result<Option<World>, sqlx::Error> {
   ).fetch_optional(get_pool().await).await
 }
 
-pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "INSERT INTO activities (world_id, started_at, ended_at) VALUES (
-      ?,
-      ?,
-      ?
-    );",
-        world_id,
-        started_at,
-        ended_at
-    )
+pub async fn new_session(world_uuid: String) -> Result<(), sqlx::Error> {
+    sqlx::query!("
+        UPDATE worlds
+        SET visits = visits + 1
+        WHERE uuid = $1
+        ;
+    ", world_uuid)
     .execute(get_pool().await)
     .await?;
+
     Ok(())
 }
 
@@ -340,27 +323,6 @@ pub struct WorldQueryFilters {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SortBy {
     Recency,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
-pub struct World {
-    pub id: i64,
-    pub uuid: String,
-    pub publisher_uuid: Option<String>,
-    pub publisher_name: Option<String>,
-    pub registered_at: Option<i64>,
-    pub description: Option<String>,
-    pub title: Option<String>,
-    pub visits: Option<i64>,
-    pub favorites: Option<i64>,
-    pub capacity: Option<i64>,
-    pub published_at: Option<i64>,
-    pub does_support_windows: Option<i64>,
-    pub does_support_android: Option<i64>,
-    pub does_support_ios: Option<i64>,
-    pub latest_at: Option<i64>,
-    pub image_cache_file: Option<String>,
-    pub self_visits: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -382,7 +344,7 @@ pub struct WorldQuery {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct WorldDBStructure {
+pub struct World {
     pub id: i64,
     /*  1 */ pub uuid: String,
     /*  2 */ pub publisher_uuid: Option<String>,
@@ -399,27 +361,4 @@ pub struct WorldDBStructure {
     /* 13 */ pub does_support_ios: Option<i64>,
     /* 14 */ pub latest_at: Option<i64>,
     /* 15 */ pub image_cache_file: Option<String>,
-}
-
-impl Into<WorldDBStructure> for World {
-    fn into(self) -> WorldDBStructure {
-        WorldDBStructure {
-            id: self.id,
-            uuid: self.uuid,
-            publisher_uuid: self.publisher_uuid,
-            publisher_name: self.publisher_name,
-            registered_at: self.registered_at,
-            description: self.description,
-            title: self.title,
-            visits: self.visits,
-            favorites: self.favorites,
-            capacity: self.capacity,
-            published_at: self.published_at,
-            does_support_windows: self.does_support_windows,
-            does_support_android: self.does_support_android,
-            does_support_ios: self.does_support_ios,
-            latest_at: self.latest_at,
-            image_cache_file: self.image_cache_file,
-        }
-    }
 }
