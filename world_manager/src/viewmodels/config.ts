@@ -5,7 +5,7 @@ interface ConfigState {
   is_discord_bot_token_some: boolean | null,
 }
 
-export const useConfigStore = create<ConfigState>((set) => ({
+export const useConfigStore = create<ConfigState>(() => ({
   is_discord_bot_token_some: null,
 }))
 

@@ -1,14 +1,26 @@
-import { attach_world, create_tag_group, createTag, get_discord_channels, get_discord_guilds, parse_channel, upsert_tag_group_attachment } from "@/models/db";
+import {
+  add_discord_link,
+  attach_world,
+  create_tag_group,
+  createTag,
+  get_discord_channels,
+  get_discord_guilds,
+  parse_channel,
+  upsert_tag_group_attachment
+} from "@/models/db";
 import { ChannelInfo, GuildInfo } from "@/types/discord";
 import { TagGroup } from "@/types/tags";
 import { create } from "zustand";
+import {useTagStore} from "@/viewmodels/tags.ts";
+import {useWorldStore} from "@/viewmodels/world.ts";
+import {useAppStore} from "@/viewmodels/app.ts";
 
 interface DiscordState {
   guilds: [GuildInfo, {categories: [ChannelInfo, ChannelInfo[]][], rootChannels: ChannelInfo[]}][],
   channels: ChannelInfo[],
 }
 
-export const useDiscordStore = create<DiscordState>((set) => ({
+export const useDiscordStore = create<DiscordState>(() => ({
   guilds: [],
   channels: [],
 }));
@@ -55,7 +67,7 @@ export function init() {
   }, 3000);
 }
 
-export async function importChannels(channels: ChannelInfo[]) {
+export async function importChannels(channels: ChannelInfo[], inbound_link: boolean, outbound_link: boolean) {
   console.log("importing: ", channels);
 
   const data = useDiscordStore.getState().guilds;
@@ -84,18 +96,20 @@ export async function importChannels(channels: ChannelInfo[]) {
 
   console.log("Tag groups: ", taggroups);
 
-
   for await (const channel of channels) {
-    const parsedWorlds = await parse_channel(channel.id);
-    const worlds = Array.isArray(parsedWorlds) ? parsedWorlds : [];
+    const worlds = (await parse_channel(channel))?.[1] ?? [];
     const tag = await createTag(channel.name);
-    console.log("worlds parsed: ", parsedWorlds, ", tag created: ", tag);
+    console.log("worlds parsed: ", worlds, ", tag created: ", tag);
+    await add_discord_link(tag!.id, channel, inbound_link, outbound_link);
     if (channel.parent_id !== null) {
       await upsert_tag_group_attachment(tag?.id!, taggroups?.find(v => v[0] === channel.parent_id)?.[1]?.id ?? null);
     }
     for (const world of worlds) {
-      await attach_world(0, world.id);
-      await attach_world(tag?.id!, world.id);
+      await attach_world(0, world.id, true);
+      await attach_world(tag?.id!, world.id, true);
     }
   }
+
+  await useTagStore.getState().update();
+  await useWorldStore.getState().updateWorld(useAppStore.getState().now);
 }

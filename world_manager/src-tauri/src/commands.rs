@@ -42,8 +42,8 @@ pub async fn get_favorited_worlds() -> Option<Vec<i64>> {
 }
 
 #[tauri::command]
-pub async fn attach_world(tagid: i64, worldid: i64) -> bool {
-  tags::attach(tagid, worldid).await.unwrap();
+pub async fn attach_world(tagid: i64, worldid: i64, isfromdiscord: bool) -> bool {
+  tags::attach(tagid, worldid, isfromdiscord).await.unwrap();
   true
 }
 
@@ -154,11 +154,11 @@ pub async fn get_discord_channels(guild_id: String) -> Option<Vec<(Option<String
 
 // u63なため、signedとして扱ってもOK
 #[tauri::command]
-pub async fn add_discord_link(tag_id: String, channel: ChannelInfo, do_auto_fetch: bool, do_auto_post: bool) -> bool {
-  if let Err(_) = crate::db::discord::upsert_channel(channel.id.parse().unwrap(), channel.name, None).await {
+pub async fn add_discord_link(tag_id: i64, channel: ChannelInfo, do_auto_fetch: bool, do_auto_post: bool) -> bool {
+  if let Err(_) = crate::db::discord::upsert_channel(channel.id.parse().unwrap(), channel.name).await {
     return false;
   }
-  if let Err(_) = crate::db::discord::create_link(tag_id.parse().unwrap(), channel.id.parse().unwrap(), do_auto_fetch, do_auto_post).await {
+  if let Err(_) = crate::db::discord::create_link(tag_id, channel.id.parse().unwrap(), do_auto_fetch, do_auto_post).await {
     return false;
   }
 
@@ -166,6 +166,6 @@ pub async fn add_discord_link(tag_id: String, channel: ChannelInfo, do_auto_fetc
 }
 
 #[tauri::command]
-pub async fn parse_channel(channel_id: String) -> Option<Vec<crate::db::worlds::WorldDBStructure>> {
-  crate::discord_bot::http::get_worlds_from_channel(ChannelId::new(channel_id.parse().unwrap())).await.ok()
+pub async fn parse_channel(channel: ChannelInfo, offset: String) -> Option<(Option<String>, Vec<crate::db::worlds::WorldDBStructure>)> {
+  crate::discord_bot::http::get_worlds_from_channel(channel, offset.parse().unwrap()).await.ok().and_then(|v| Some((v.0.and_then(|v| Some(v.to_string())), v.1)))
 }

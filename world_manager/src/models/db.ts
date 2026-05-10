@@ -1,7 +1,7 @@
 import { Config } from "@/types/config";
 import { ChannelInfo, GuildInfo } from "@/types/discord";
 import { Tag, TagGroup } from "@/types/tags";
-import { SortBy, World, WorldQuery, WorldQueryFilters } from "@/types/world";
+import {SortBy, World, WorldDBStructure, WorldQuery, WorldQueryFilters} from "@/types/world";
 import { invoke } from "@tauri-apps/api/core";
 
 export async function upsert_world(query: WorldQuery): Promise<boolean> {
@@ -32,8 +32,8 @@ export async function get_favorited_worlds(): Promise<number[] | null> {
   return await invoke("get_favorited_worlds");
 }
 
-export async function attach_world(tagid: number, worldid: number): Promise<boolean> {
-  return await invoke("attach_world", { tagid, worldid });
+export async function attach_world(tagid: number, worldid: number, isfromdiscord: boolean): Promise<boolean> {
+  return await invoke("attach_world", { tagid, worldid, isfromdiscord });
 }
 
 export async function detach_world(tagid: number, worldid: number): Promise<boolean> {
@@ -92,6 +92,6 @@ export async function add_discord_link(tag_id: number, channel: ChannelInfo, do_
   return await invoke("add_discord_link", {tagId: tag_id, channel, doAutoFetch: do_auto_fetch, doAutoPost: do_auto_post});
 }
 
-export async function parse_channel(channel_id: string): Promise<ChannelInfo | null> {
-  return await invoke("parse_channel", {channelId: channel_id});
+export async function parse_channel(channel: ChannelInfo): Promise<[string | null, WorldDBStructure[]] | null> {
+  return await invoke("parse_channel", {channel, offset: "0"});
 }

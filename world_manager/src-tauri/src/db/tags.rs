@@ -109,7 +109,12 @@ struct WorldsIdOnly {
   pub worlds_id: i64
 }
 
-pub async fn attach(tag_id: i64, world_id: i64) -> Result<(), sqlx::Error> {
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Origin {
+  DiscordChannel,
+  Other,
+}
+pub async fn attach(tag_id: i64, world_id: i64, is_from_discord: bool) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "
     INSERT INTO tags_worlds (tags_id, worlds_id, is_sent_to_discord)
@@ -120,6 +125,18 @@ pub async fn attach(tag_id: i64, world_id: i64) -> Result<(), sqlx::Error> {
     tag_id,
     world_id
   ).execute(get_pool().await).await?;
+
+  if !is_from_discord {
+    tauri::async_runtime::spawn(async move {
+      if let Ok(Some(link)) = crate::db::discord::get_link_by_tag_id(tag_id).await {
+        if link.do_auto_post != 0 {
+          // send to discord
+          let world = crate::db::worlds::get_world_by_id(world_id).await.unwrap().unwrap();
+          crate::discord_bot::http::post_world(tag_id, world.into()).await.unwrap();
+        }
+      }
+    });
+  }
 
   Ok(())
 }
@@ -167,6 +184,15 @@ pub async fn delete(tag_id: i64) -> Result<bool, sqlx::Error> {
     "
     DELETE FROM tags_worlds
     WHERE tags_id = $1
+    ;
+    ",
+    tag_id
+  ).execute(get_pool().await).await?;
+
+  sqlx::query!(
+    "
+    DELETE FROM tags_discord_channels
+    WHERE tag_id = $1
     ;
     ",
     tag_id

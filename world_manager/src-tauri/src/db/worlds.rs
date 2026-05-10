@@ -2,27 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use super::get_pool;
 
-pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error> {
-  sqlx::query_as!(
+pub async fn upsert_world(w: WorldQuery) -> Result<(bool, WorldDBStructure), sqlx::Error> {
+  /// bool: true if inserted, false if updated
+  let r = sqlx::query_as!(
     WorldDBStructure,
     "
     INSERT INTO worlds (uuid, publisher_uuid, publisher_name, registered_at, description, title, visits, favorites, capacity, published_at, does_support_windows, does_support_android, does_support_ios, latest_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-    ON CONFLICT(uuid) DO UPDATE SET
-      uuid = COALESCE(EXCLUDED.uuid, worlds.uuid),
-      publisher_uuid = COALESCE(EXCLUDED.publisher_uuid, worlds.publisher_uuid),
-      publisher_name = COALESCE(EXCLUDED.publisher_name, worlds.publisher_name),
-      registered_at = COALESCE(EXCLUDED.registered_at, worlds.registered_at),
-      description = COALESCE(EXCLUDED.description, worlds.description),
-      title = COALESCE(EXCLUDED.title, worlds.title),
-      visits = COALESCE(EXCLUDED.visits, worlds.visits),
-      favorites = COALESCE(EXCLUDED.favorites, worlds.favorites),
-      capacity = COALESCE(EXCLUDED.capacity, worlds.capacity),
-      published_at = COALESCE(EXCLUDED.published_at, worlds.published_at),
-      does_support_windows = COALESCE(EXCLUDED.does_support_windows, worlds.does_support_windows),
-      does_support_android = COALESCE(EXCLUDED.does_support_android, worlds.does_support_android),
-      does_support_ios = COALESCE(EXCLUDED.does_support_ios, worlds.does_support_ios),
-      latest_at = MAX(worlds.latest_at, COALESCE(EXCLUDED.latest_at, worlds.latest_at))
+    ON CONFLICT(uuid) DO NOTHING
       RETURNING *
     ;
     ",
@@ -40,7 +27,66 @@ pub async fn upsert_world(w: WorldQuery) -> Result<WorldDBStructure, sqlx::Error
     w.does_support_android,
     w.does_support_ios,
     w.latest_at,
-  ).fetch_one(get_pool().await).await
+  ).fetch_optional(get_pool().await).await?;
+
+  if let Some(w) = r {
+    Ok((true, w))
+  } else {
+    sqlx::query_as!(
+      WorldDBStructure,
+      r#"
+    UPDATE worlds
+    SET
+      uuid = COALESCE($1, worlds.uuid),
+      publisher_uuid = COALESCE($2, worlds.publisher_uuid),
+      publisher_name = COALESCE($3, worlds.publisher_name),
+      registered_at = COALESCE($4, worlds.registered_at),
+      description = COALESCE($5, worlds.description),
+      title = COALESCE($6, worlds.title),
+      visits = COALESCE($7, worlds.visits),
+      favorites = COALESCE($8, worlds.favorites),
+      capacity = COALESCE($9, worlds.capacity),
+      published_at = COALESCE($10, worlds.published_at),
+      does_support_windows = COALESCE($11, worlds.does_support_windows),
+      does_support_android = COALESCE($12, worlds.does_support_android),
+      does_support_ios = COALESCE($13, worlds.does_support_ios),
+      latest_at = MAX(worlds.latest_at, COALESCE($14, worlds.latest_at))
+    WHERE worlds.uuid = $1
+    RETURNING
+      COALESCE(id, 0) AS "id!: i64",
+      uuid,
+      publisher_uuid,
+      publisher_name,
+      registered_at,
+      description,
+      title,
+      visits,
+      favorites,
+      capacity,
+      published_at,
+      does_support_windows,
+      does_support_android,
+      does_support_ios,
+      latest_at,
+      image_cache_file
+    ;
+    "#,
+    w.uuid,
+    w.publisher_uuid,
+    w.publisher_name,
+    w.registered_at,
+    w.description,
+    w.title,
+    w.visits,
+    w.favorites,
+    w.capacity,
+    w.published_at,
+    w.does_support_windows,
+    w.does_support_android,
+    w.does_support_ios,
+    w.latest_at
+    ).fetch_one(get_pool().await).await.and_then(|v| Ok((false, v)))
+  }
 }
 
 pub async fn get_id_from_uuid(uuid: &str) -> Result<Option<i64>, sqlx::Error> {
@@ -227,6 +273,36 @@ pub async fn get_worlds(filter: &WorldQueryFilters, _sort_by: &SortBy) -> Result
   }
 }
 
+pub async fn get_world_by_id(id: i64) -> Result<Option<World>, sqlx::Error> {
+  sqlx::query_as!(
+    World,
+    r#"
+    SELECT
+      w.id AS "id!: i64",
+      w.uuid,
+      w.publisher_uuid,
+      w.publisher_name,
+      w.registered_at,
+      w.description,
+      w.title,
+      w.visits,
+      w.favorites,
+      w.capacity,
+      w.published_at,
+      w.does_support_windows,
+      w.does_support_android,
+      w.does_support_ios,
+      w.latest_at,
+      w.image_cache_file,
+      COALESCE((SELECT COUNT(*) FROM activities a WHERE a.world_id = w.id), 0) AS "self_visits!: i64"
+    FROM worlds w
+    WHERE w.id = $1
+    ;
+    "#,
+    id
+  ).fetch_optional(get_pool().await).await
+}
+
 pub async fn new_session(world_id: i64, started_at: i64, ended_at: i64) -> Result<(), sqlx::Error> {
   sqlx::query!(
     "INSERT INTO activities (world_id, started_at, ended_at) VALUES (
@@ -309,4 +385,27 @@ pub struct WorldDBStructure {
   /* 13 */ pub does_support_ios: Option<i64>,
   /* 14 */ pub latest_at: Option<i64>,
   /* 15 */ pub image_cache_file: Option<String>,
+}
+
+impl Into<WorldDBStructure> for World {
+  fn into(self) -> WorldDBStructure {
+    WorldDBStructure {
+      id: self.id,
+      uuid: self.uuid,
+      publisher_uuid: self.publisher_uuid,
+      publisher_name: self.publisher_name,
+      registered_at: self.registered_at,
+      description: self.description,
+      title: self.title,
+      visits: self.visits,
+      favorites: self.favorites,
+      capacity: self.capacity,
+      published_at: self.published_at,
+      does_support_windows: self.does_support_windows,
+      does_support_android: self.does_support_android,
+      does_support_ios: self.does_support_ios,
+      latest_at: self.latest_at,
+      image_cache_file: self.image_cache_file,
+    }
+  }
 }

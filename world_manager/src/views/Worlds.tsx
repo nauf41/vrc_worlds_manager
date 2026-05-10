@@ -54,7 +54,7 @@ export function WorldTable() {
               <TableCell>
                 <div className="flex flex-row gap-1">
                   { !tagStore.tags.find(v => v[0].id === 0)![1].includes(world.id) && (
-                    <Button className="p-2" onClick={async () => {await attach_world(0, world.id); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
+                    <Button className="p-2" onClick={async () => {await attach_world(0, world.id, false); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
                   )}
                   <Button className="p-2"><BookmarkPlus className="w-full h-full" /></Button>
                 </div>
@@ -97,7 +97,7 @@ export function World(props: {world: TWorld}) {
         <CardFooter>
           <div className="flex flex-row w-full gap-1">
             { !tagStore.tags.find(v => v[0].id === 0)![1].includes(props.world.id) && (
-              <Button className="p-2" onClick={async () => {await attach_world(0, props.world.id); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
+              <Button className="p-2" onClick={async () => {await attach_world(0, props.world.id, false); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
             )}
             <Button className="p-2" onClick={() => {appStore.change_dialog({type: "world_tag", world: props.world})}}><BookmarkPlus className="w-full h-full" /></Button>
           </div>
