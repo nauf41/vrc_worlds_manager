@@ -1,3 +1,4 @@
+use flexi_logger::{Age, Criterion, FileSpec, Logger, Naming};
 use tauri::WindowEvent;
 
 mod commands;
@@ -9,21 +10,26 @@ mod log_watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    env_logger::Builder::new()
-        .format(|buf, rec| {
-            use std::io::Write;
-            writeln!(
-                buf,
-                "{}:{} [{}] - {}",
-                rec.file().unwrap_or("unknown"),
-                rec.line().unwrap_or(0),
-                rec.level(),
-                rec.args(),
-            )
-        })
-        .filter(None, log::LevelFilter::Info)
-        .target(env_logger::Target::Stderr)
-        .init();
+  Logger::try_with_env_or_str("info") // フィルタ設定に相当
+    .unwrap()
+    .format(|w, now, rec| {
+      write!(
+        w,
+        "{}:{} [{}] - {}",
+        rec.file().unwrap_or("unknown"),
+        rec.line().unwrap_or(0),
+        rec.level(),
+        rec.args(),
+      )
+    })
+    .log_to_file(FileSpec::default().directory("logs"))
+    .rotate(
+      Criterion::Age(Age::Day),
+      Naming::Timestamps,
+      flexi_logger::Cleanup::KeepLogFiles(7),
+    )
+    .start()
+    .unwrap();
 
     log::info!("Application started");
 
