@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { importChannels, useDiscordStore } from "@/viewmodels/discord";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
+import {Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx";
 
 export function TagCreate(props: {state: TagState, taggroup?: TagGroup}) {
   return (
@@ -74,9 +75,10 @@ export function TagEdit(props: {appState: AppState, tagState: TagState, tag: Tag
 export function ImportTags() {
   const discordState = useDiscordStore();
   const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set<string>());
+  const [linkType, setLinkType] = useState<string>("");
 
   return (
-    <div>
+    <div className="max-h-full">
       <form onSubmit={async (e) => {
         e.preventDefault();
         console.log("Selected channels: ", selectedChannels);
@@ -84,16 +86,16 @@ export function ImportTags() {
         for (const channel of selectedChannels) {
           channels.push(discordState.channels.find(c => c.id === channel)!);
         }
-        await importChannels(channels);
-      }}>
-        <FieldGroup>
-          <FieldSet>
-            <ScrollArea className="flex-grow min-h-0">
+        await importChannels(channels, linkType === "inbound-only" || linkType === "inbound-outbound", linkType === "inbound-outbound");
+      }} className="max-h-full">
+        <FieldGroup className="flex flex-col h-[95vh]">
+          <ScrollArea className="shrink min-h-0">
+            <FieldSet>
               <FieldLegend><span className="text-gray-400">Import Tags</span></FieldLegend>
-              {discordState.guilds.map(guild => (
+              { discordState.guilds.map(guild => (
                 <FieldGroup key={guild[0].id}>
-                  <FieldTitle>{guild[0].name}</FieldTitle>
-                  <Field>
+                  <FieldTitle className="text-xl">Server: {guild[0].name}</FieldTitle>
+                  <Field className="ml-4">
                     {guild[1].rootChannels.map(channel => (
                       <Field key={channel.id} className="m-0 p-0" orientation="horizontal">
                         <Checkbox
@@ -113,7 +115,7 @@ export function ImportTags() {
                     ))}
                   </Field>
                   { guild[1].categories.map(category => (
-                    <Field key={category[0].id} orientation="vertical">
+                    <Field key={category[0].id} orientation="vertical" className="ml-4">
                       <FieldTitle>{category[0].name}</FieldTitle>
                       { category[1].map((chan) => (
                         <Field key={chan.id} orientation="horizontal">
@@ -138,10 +140,22 @@ export function ImportTags() {
                   }
                 </FieldGroup>
               ))}
-            </ScrollArea>
-          </FieldSet>
-          <Field orientation="horizontal">
-            <Button type="submit">Import</Button>
+              </FieldSet>
+          </ScrollArea>
+          <Field orientation="horizontal" className="p-2 w-full flex flex-row gap-2 bg-gray-700">
+            <Select value={linkType} onValueChange={(value) => setLinkType(value)}>
+              <SelectTrigger className="w-45">
+                <SelectValue placeholder="Select an action..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="no-link">No Link</SelectItem>
+                  <SelectItem value="inbound-only">Here ← Discord</SelectItem>
+                  <SelectItem value="inbound-outbound">Here ↔ Discord</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button type="submit" disabled={!linkType}>Import</Button>
             <Button variant="outline" type="button">Cancel</Button>
           </Field>
         </FieldGroup>

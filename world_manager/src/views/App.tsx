@@ -18,7 +18,7 @@ function App() {
           <WorldDialog world={appState.dialog.world} tags={tagState} app={appState} />
         )}
         <SideBar state={appState} />
-        <div className="col-span-8 min-h-0 overflow-hidden p-2">
+        <div className="col-span-8 p-4">
           { appState.now.type === "settings" && (
             <Settings />
           )}

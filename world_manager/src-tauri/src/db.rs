@@ -74,15 +74,15 @@ pub async fn init() -> Result<(), sqlx::Error> {
   sqlx::query!(
     "CREATE TABLE IF NOT EXISTS discord_channels (
       id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      latest_read_id INTEGER
+      name TEXT NOT NULL
     );"
   ).execute(pool).await?;
 
   sqlx::query!(
     "CREATE TABLE IF NOT EXISTS tags_discord_channels (
       tag_id INTEGER NOT NULL UNIQUE,
-      discord_channel_id INTEGER NOT NULL UNIQUE,
+      discord_channel_id INTEGER NOT NULL,
+      latest_read_id INTEGER,
       do_auto_fetch INTEGER NOT NULL,
       do_auto_post INTEGER NOT NULL,
       PRIMARY KEY (tag_id, discord_channel_id),

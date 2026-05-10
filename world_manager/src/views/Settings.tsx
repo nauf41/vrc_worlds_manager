@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { get_config, update_config } from "@/models/db"
+import { update_config } from "@/models/db"
 import { useConfigStore } from "@/viewmodels/config"
 import { useState } from "react"
 

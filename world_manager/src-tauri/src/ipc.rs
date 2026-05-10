@@ -106,7 +106,7 @@ pub async fn process_and_gen_response(app: &AppHandle, msg: native_messaging::Me
 
 
       let res = if let Some(world_id) = world_id {
-        crate::db::tags::attach(0, world_id).await?; // tag[0] indicates "registered"
+        crate::db::tags::attach(0, world_id, false).await?; // tag[0] indicates "registered"
         app.emit("registered-status-updated", ()).unwrap();
         Ok(Response {
           id: msg.id,

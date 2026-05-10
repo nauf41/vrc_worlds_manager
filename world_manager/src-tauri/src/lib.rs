@@ -1,3 +1,5 @@
+use tauri::WindowEvent;
+
 mod db;
 mod ipc;
 mod commands;
@@ -19,7 +21,7 @@ pub fn run() {
                 rec.args(),
             )
         })
-        .filter(None, log::LevelFilter::Warn)
+        .filter(None, log::LevelFilter::Info)
         .target(env_logger::Target::Stderr)
         .init();
 

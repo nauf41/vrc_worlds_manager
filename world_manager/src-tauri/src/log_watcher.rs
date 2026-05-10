@@ -70,7 +70,7 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
           updated = true;
         }
 
-        let id = crate::db::worlds::upsert_world(WorldQuery {
+        let res = crate::db::worlds::upsert_world(WorldQuery {
           uuid: session.world_uuid.clone(),
           title: Some(session.world_name.clone()),
           publisher_uuid: None,
@@ -85,7 +85,8 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
           does_support_ios: None,
           latest_at: Some(session.started_at.timestamp_millis()),
           registered_at: None,
-        }).await?.id;
+        }).await?;
+        let id = res.1.id;
 
         if let Some(t) = &session.ended_at {
           crate::db::worlds::new_session(
@@ -94,7 +95,6 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
             t.timestamp_millis(),
           ).await?;
         }
-
       }
     }
 

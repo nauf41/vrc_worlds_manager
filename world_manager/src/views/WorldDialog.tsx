@@ -27,7 +27,7 @@ export function WorldDialog(props: {world: World, tags: TagState, app: AppState}
             if (nowStatus !== defaultStatus) {
               if (nowStatus) {
                 console.log(`Attaching tag ${tagid}`);
-                tasks.push(attach_world(tagid, props.world.id));
+                tasks.push(attach_world(tagid, props.world.id, false));
               } else {
                 console.log(`Detaching tag ${tagid}`);
                 tasks.push(detach_world(tagid, props.world.id));
