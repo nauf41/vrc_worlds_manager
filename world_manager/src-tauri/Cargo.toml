@@ -35,3 +35,4 @@ ts-rs = "12.0.1"
 uuid = { version = "1.23.1", features = ["v7"] }
 base64 = "0.22.1"
 infer = "0.19.0"
+tauri-plugin-shell = "2"

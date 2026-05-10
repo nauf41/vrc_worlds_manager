@@ -1,9 +1,9 @@
 use crate::db::get_pool;
 
 pub async fn get_log(log_name: &str) -> Result<Option<LogData>, sqlx::Error> {
-  sqlx::query_as!(
-    LogData,
-    "
+    sqlx::query_as!(
+        LogData,
+        "
     SELECT
       name,
       read_at
@@ -11,39 +11,45 @@ pub async fn get_log(log_name: &str) -> Result<Option<LogData>, sqlx::Error> {
     WHERE name = ?
     ;
     ",
-    log_name
-  ).fetch_optional(get_pool().await).await
+        log_name
+    )
+    .fetch_optional(get_pool().await)
+    .await
 }
 
 pub async fn new_log(log_name: &str) -> Result<(), sqlx::Error> {
-  sqlx::query!(
-    "
+    sqlx::query!(
+        "
     INSERT INTO log_files (name, read_at)
     VALUES (?, 0)
     ;
     ",
-    log_name
-  ).execute(get_pool().await).await?;
+        log_name
+    )
+    .execute(get_pool().await)
+    .await?;
 
-  Ok(())
+    Ok(())
 }
 
 pub async fn update_log_read_at(log_name: &str, read_at: i64) -> Result<(), sqlx::Error> {
-  sqlx::query!(
-    "
+    sqlx::query!(
+        "
     UPDATE log_files
     SET read_at = ?
     WHERE name = ?
     ;
     ",
-    read_at,
-    log_name
-  ).execute(get_pool().await).await?;
+        read_at,
+        log_name
+    )
+    .execute(get_pool().await)
+    .await?;
 
-  Ok(())
+    Ok(())
 }
 
 pub struct LogData {
-  pub name: String,
-  pub read_at: i64,
+    pub name: String,
+    pub read_at: i64,
 }

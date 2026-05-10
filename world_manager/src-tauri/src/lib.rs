@@ -1,11 +1,11 @@
 use tauri::WindowEvent;
 
-mod db;
-mod ipc;
 mod commands;
-mod log_watcher;
-mod discord_bot;
 mod config;
+mod db;
+mod discord_bot;
+mod ipc;
+mod log_watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,6 +28,7 @@ pub fn run() {
     log::info!("Application started");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_worlds,
             commands::get_tags,

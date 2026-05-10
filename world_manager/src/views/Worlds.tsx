@@ -15,7 +15,8 @@ import type { World as TWorld } from "@/types/world";
 import { useAppStore } from "@/viewmodels/app";
 import { useTagStore } from "@/viewmodels/tags";
 import { useWorldStore } from "@/viewmodels/world";
-import { BookmarkPlus, Footprints, Plus, UserCheck } from "lucide-react";
+import {BookmarkPlus, ExternalLink, Footprints, Plus, UserCheck} from "lucide-react";
+import { open } from "@tauri-apps/plugin-shell";
 
 export function Worlds() {
   const worlds = useWorldStore();
@@ -57,6 +58,7 @@ export function WorldTable() {
                     <Button className="p-2" onClick={async () => {await attach_world(0, world.id, false); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
                   )}
                   <Button className="p-2"><BookmarkPlus className="w-full h-full" /></Button>
+                  <Button className="p-2" onClick={() => {open(`https://vrchat.com/home/world/${world.uuid}/info`);}}><ExternalLink className="w-full h-full" /></Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -100,6 +102,7 @@ export function World(props: {world: TWorld}) {
               <Button className="p-2" onClick={async () => {await attach_world(0, props.world.id, false); await worldStore.updateWorld(useAppStore.getState().now); await tagStore.update();}}><Plus className="w-full h-full" /></Button>
             )}
             <Button className="p-2" onClick={() => {appStore.change_dialog({type: "world_tag", world: props.world})}}><BookmarkPlus className="w-full h-full" /></Button>
+            <Button className="p-2" onClick={() => {open(`https://vrchat.com/home/world/${props.world.uuid}/info`);}}><ExternalLink className="w-full h-full" /></Button>
           </div>
         </CardFooter>
       </Card>
