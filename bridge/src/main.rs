@@ -6,26 +6,17 @@ use std::io::Read;
 #[tokio::main]
 #[cfg(windows)]
 async fn main() -> anyhow::Result<()> {
-  let log_file_path = "latest1.log";
-  let mut log_file_1 = if std::fs::exists(log_file_path).unwrap() {
-    std::fs::remove_file(log_file_path).unwrap();
-    std::fs::File::create_new(log_file_path).unwrap()
-  } else {
-    std::fs::File::create_new(log_file_path).unwrap()
-  };
-
-  let log_file_path = "latest2.log";
-  let mut log_file_2 = if std::fs::exists(log_file_path).unwrap() {
-    std::fs::remove_file(log_file_path).unwrap();
-    std::fs::File::create_new(log_file_path).unwrap()
-  } else {
-    std::fs::File::create_new(log_file_path).unwrap()
-  };
-
   let mut rng = rand::rng();
   let proc_uniq_id = rng.random::<u32>();
 
-  let client = ClientOptions::new().open(r"\\.\pipe\io.github.nauf41.world_manager.tauri").unwrap();
+  let client = loop {
+    if let Ok(v) = ClientOptions::new().open(r"\\.\pipe\io.github.nauf41.world_manager.tauri") {
+      break v;
+    }
+
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+  };
+
 
   let (mut reader, mut writer) = tokio::io::split(client);
 
@@ -41,8 +32,6 @@ async fn main() -> anyhow::Result<()> {
       let len = u32::from_le_bytes(len_buf);
       let mut msg_buf = vec![0u8; len as usize];
       stdin.read_exact(&mut msg_buf).unwrap();
-
-      log_file_1.write_all(format!("[REQ] siz: {}, msg: {}\n", u32::from_le_bytes(len_buf.clone()), String::from_utf8(msg_buf.clone()).unwrap()).as_bytes()).unwrap();
 
       let mut msg: Vec<u8> = vec![];
       msg.extend_from_slice(&proc_uniq_id.to_be_bytes());
@@ -70,8 +59,6 @@ async fn main() -> anyhow::Result<()> {
 
       let mut dat_buf = vec![0u8; siz];
       reader.read_exact(&mut dat_buf).await.unwrap();
-
-      log_file_2.write_all(format!("[RES] id: {}, siz: {}, msg: {}\n", u32::from_le_bytes(header_buf.clone()), u32::from_le_bytes(siz_buf.clone()), String::from_utf8(dat_buf.clone()).unwrap()).as_bytes()).unwrap();
 
       let mut msg: Vec<u8> = siz_buf.into();
       msg.append(&mut dat_buf);

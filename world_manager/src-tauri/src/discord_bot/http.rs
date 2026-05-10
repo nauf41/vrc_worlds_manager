@@ -1,6 +1,6 @@
 use crate::commands::ChannelInfo;
 use crate::db::discord::{get_link_by_tag_id, ChannelDBStructure};
-use crate::db::worlds::{World, World, WorldQuery};
+use crate::db::worlds::{World, WorldQuery};
 use regex::Regex;
 use serenity::all::Message;
 use serenity::{
