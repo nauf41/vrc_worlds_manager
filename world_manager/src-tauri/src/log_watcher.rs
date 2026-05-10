@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter};
 use crate::db::worlds::WorldQuery;
 
 pub async fn main(app: AppHandle) -> anyhow::Result<()> {
-    log::debug!("Log watcher started");
+    log::info!("Log watcher started");
     let vrc_dir = {
         let mut path = PathBuf::from(env::home_dir().unwrap());
         path.push("AppData");
@@ -47,7 +47,7 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
                 crate::db::log_files::get_log(&entry.file_name().into_string().unwrap()).await?
             {
                 if (v.read_at as u64) < std::fs::metadata(entry.path())?.len() {
-                    process_target.push(((v.read_at as u64), entry));
+                    process_target.push((v.read_at as u64, entry));
                 }
             } else {
                 process_target.push((0, entry));
@@ -89,7 +89,7 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
                     updated = true;
                 }
 
-                let res = crate::db::worlds::upsert_world(WorldQuery {
+                crate::db::worlds::upsert_world(WorldQuery {
                     uuid: session.world_uuid.clone(),
                     title: Some(session.world_name.clone()),
                     publisher_uuid: None,
@@ -106,22 +106,12 @@ pub async fn main(app: AppHandle) -> anyhow::Result<()> {
                     registered_at: None,
                 })
                 .await?;
-                let id = res.1.id;
 
-                if let Some(t) = &session.ended_at {
-                    crate::db::worlds::new_session(
-                        id,
-                        session.started_at.timestamp_millis(),
-                        t.timestamp_millis(),
-                    )
-                    .await?;
-                }
+                crate::db::worlds::new_session(session.world_uuid).await?;
             }
         }
 
-        if updated {
-            app.emit("new-world", ()).unwrap();
-        }
+        app.emit("new-world", ()).unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(1 * 1000)).await;
     }
@@ -133,10 +123,9 @@ fn process_file<R: std::io::BufRead + std::io::Seek>(
     //! @returns line number by which processing is done
 
     let header_regex =
-        Regex::new(r"^[0-9]{4}\.[0-9]{2}\.[0-9]{2} [0-9]{2}\:[0-9]{2}\:[0-9]{2}\ .+? -  ").unwrap();
-    let enter_room_uuid_regex = Regex::new(r"^\[Behaviour\] Joining (wrld_.+?):").unwrap();
-    let enter_room_name_regex = Regex::new(r"^\[Behaviour\] Entering Room\: (.+)\n?$").unwrap();
-    let exit_room_regex = Regex::new(r"^\[Behaviour\] OnLeftRoom").unwrap();
+        Regex::new(r"^[0-9]{4}\.[0-9]{2}\.[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} .+? - {2}").unwrap();
+    let enter_room_uuid_regex = Regex::new(r"^\[Behavior] Joining (wrld_.+?):").unwrap();
+    let enter_room_name_regex = Regex::new(r"^\[Behavior] Entering Room: (.+)\n?$").unwrap();
 
     let mut now_header: Option<LogHeader> = None;
     let mut session_from: Option<chrono::DateTime<Utc>> = None;
@@ -192,9 +181,7 @@ fn process_file<R: std::io::BufRead + std::io::Seek>(
             };
 
             now_header = Some(LogHeader::new(time, level));
-            continue;
-        }
-        if enter_room_uuid_regex.is_match(&buf) {
+        } else if enter_room_uuid_regex.is_match(&buf) {
             session_world_uuid = Some(enter_room_uuid_regex.captures(&buf).unwrap()[1].to_owned());
             session_from = Some(
                 now_header
@@ -203,29 +190,16 @@ fn process_file<R: std::io::BufRead + std::io::Seek>(
             );
         } else if enter_room_name_regex.is_match(&buf) {
             session_world_name = Some(enter_room_name_regex.captures(&buf).unwrap()[1].to_owned());
-        } else if exit_room_regex.is_match(&buf) {
-            sessions.push(Session::new(
-                session_from
-                    .clone()
-                    .ok_or(anyhow::anyhow!("Missing session start time"))?,
-                Some(
-                    now_header
-                        .ok_or(anyhow::anyhow!("Missing session end time (in log header)"))?
-                        .time,
-                ),
-                session_world_uuid
-                    .clone()
-                    .ok_or(anyhow::anyhow!("Missing world UUID"))?,
-                session_world_name
-                    .clone()
-                    .ok_or(anyhow::anyhow!("Missing world name"))?,
-            ));
-
-            session_from = None;
-            session_world_name = None;
-            session_world_uuid = None;
-            read_until = reader.seek(std::io::SeekFrom::Current(0)).unwrap() as i64;
         }
+
+        if session_from.is_some() && session_world_name.is_some() && session_world_uuid.is_some() {
+            sessions.push(Session {
+                started_at: session_from.take().unwrap(),
+                world_name: session_world_name.take().unwrap(),
+                world_uuid: session_world_uuid.take().unwrap(),
+            })
+        }
+        read_until = reader.seek(std::io::SeekFrom::Current(0)).unwrap() as i64;
         buf.clear();
     }
 
@@ -266,7 +240,6 @@ impl LogLevel {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Session {
     started_at: chrono::DateTime<Utc>,
-    ended_at: Option<chrono::DateTime<Utc>>,
     world_uuid: String,
     world_name: String,
 }
@@ -274,13 +247,11 @@ struct Session {
 impl Session {
     pub fn new(
         started_at: chrono::DateTime<Utc>,
-        ended_at: Option<chrono::DateTime<Utc>>,
         world_uuid: String,
         world_name: String,
     ) -> Self {
         Self {
             started_at,
-            ended_at,
             world_name,
             world_uuid,
         }
@@ -307,7 +278,7 @@ mod tests {
 
     impl Into<String> for LogBuilder {
         fn into(self) -> String {
-            //2026.05.03 22:46:35 Debug      -  [Behaviour] Spent 0.004882813s attaching initial component handlers.
+            //2026.05.03 22:46:35 Debug      -  [Behavior] Spent 0.004882813s attaching initial component handlers.
             format!(
                 "{:04}.{:02}.{:02} {:02}:{:02}:{:02} {:<11}-  {}\n",
                 self.header.time.year(),
@@ -369,7 +340,6 @@ mod tests {
                 log.iter().map(|s| s.len() as i64).sum(),
                 vec![Session::new(
                     Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
-                    Some(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap()),
                     "wrld_1234567890".to_owned(),
                     "test".to_owned(),
                 )]
@@ -435,13 +405,11 @@ mod tests {
                 vec![
                     Session::new(
                         Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 2).unwrap(),
-                        Some(Utc.with_ymd_and_hms(2000, 1, 1, 0, 5, 0).unwrap()),
                         "wrld_1234567890".to_owned(),
                         "test".to_owned(),
                     ),
                     Session::new(
                         Utc.with_ymd_and_hms(2000, 1, 2, 0, 0, 2).unwrap(),
-                        Some(Utc.with_ymd_and_hms(2000, 1, 2, 0, 5, 0).unwrap()),
                         "wrld_2234567890".to_owned(),
                         "test2".to_owned(),
                     )

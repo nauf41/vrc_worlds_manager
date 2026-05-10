@@ -1,6 +1,6 @@
 use crate::commands::ChannelInfo;
 use crate::db::discord::{get_link_by_tag_id, ChannelDBStructure};
-use crate::db::worlds::{World, WorldDBStructure, WorldQuery};
+use crate::db::worlds::{World, World, WorldQuery};
 use regex::Regex;
 use serenity::all::Message;
 use serenity::{
@@ -65,11 +65,11 @@ pub async fn get_channels(
 pub async fn get_worlds_from_channel(
     channel: ChannelInfo,
     processed_until: u64,
-) -> SerenityResult<(Option<u64>, Vec<WorldDBStructure>)> {
+) -> SerenityResult<(Option<u64>, Vec<World>)> {
     /// (read_until, world[])
     /// 過去に遡って取得する
     let http = get_http()?;
-    let mut worlds: Vec<WorldDBStructure> = vec![];
+    let mut worlds: Vec<World> = vec![];
 
     let mut message_id_earliest: Option<MessageId> = None;
     let mut message_id_latest: Option<MessageId> = None;
@@ -121,9 +121,9 @@ pub async fn get_worlds_from_channel(
 }
 
 pub async fn process_message(
-    processed_until: u64,
-    msg: &Message,
-    worlds: &mut Vec<WorldDBStructure>,
+  processed_until: u64,
+  msg: &Message,
+  worlds: &mut Vec<World>,
 ) -> bool {
     /// @returns boolean whether it should break loop
     static REG_WORLD_URL: std::sync::LazyLock<Regex> = LazyLock::new(|| {
@@ -206,7 +206,7 @@ pub async fn process_message(
     }
 }
 
-pub async fn post_world(tag_id: i64, world: WorldDBStructure) -> SerenityResult<()> {
+pub async fn post_world(tag_id: i64, world: World) -> SerenityResult<()> {
     let http = get_http()?;
     let connection = get_link_by_tag_id(tag_id).await.unwrap();
     if let Some(con) = connection {

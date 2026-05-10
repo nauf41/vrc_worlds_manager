@@ -210,7 +210,7 @@ pub async fn add_discord_link(
 pub async fn parse_channel(
     channel: ChannelInfo,
     offset: String,
-) -> Option<(Option<String>, Vec<crate::db::worlds::WorldDBStructure>)> {
+) -> Option<(Option<String>, Vec<crate::db::worlds::World>)> {
     crate::discord_bot::http::get_worlds_from_channel(channel, offset.parse().unwrap())
         .await
         .ok()

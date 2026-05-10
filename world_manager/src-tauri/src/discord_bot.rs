@@ -6,7 +6,7 @@ use serenity::{
 use std::sync::{Arc, LazyLock, OnceLock};
 
 use crate::db::discord::TagDiscordLink;
-use crate::db::worlds::WorldDBStructure;
+use crate::db::worlds::World;
 use crate::discord_bot::http::process_message;
 
 pub mod http;
@@ -51,7 +51,7 @@ impl serenity::client::EventHandler for Handler {
                     wl.discord_channel_id,
                     wl.tag_id
                 );
-                let mut wrld: Vec<WorldDBStructure> = vec![];
+                let mut wrld: Vec<World> = vec![];
                 process_message(
                     wl.latest_read_id.unwrap_or(0).try_into().unwrap(),
                     &msg,
