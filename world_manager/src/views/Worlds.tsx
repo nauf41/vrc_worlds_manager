@@ -80,7 +80,7 @@ export function World(props: {world: TWorld}) {
       <Card className="relative mx-auto pt-0 h-full flex flex-col">
         <div className="absolute inset-0 z-30 aspect-video bg-black/35" />
         <img
-          src="/testimage.png"
+          src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
           alt={`sumbneil of ${props.world.title}`}
           className="relative z-20 aspect-video w-full object-cover"
         />
